@@ -2,28 +2,27 @@ package upload
 
 import (
 	"container/list"
-	"crypto/sha256"
-	"sync"
+	"hash/maphash"
 )
 
-// Cache is a content-addressed LRU upload cache. It maps image data (by SHA256)
-// to kitty image IDs and tracks per-client handles.
+// Cache is a content-addressed LRU upload cache. It maps image data (by hash)
+// to kitty image IDs and tracks reference counts for deduplication.
 //
-// This is one of the few structures protected by a mutex rather than the
-// engine's event loop, because client goroutines call Upload directly before
-// going through the engine.
+// The cache is owned exclusively by the PlacementEngine goroutine — no mutex
+// needed. All access is single-threaded through the engine's event loop.
+//
+// Uses maphash for content addressing (fast, non-cryptographic). Will be
+// replaced with xxh3-128 (github.com/zeebo/xxh3) when the dependency is added.
 type Cache struct {
-	mu      sync.RWMutex
-	byHash  map[[32]byte]*entry
+	byHash  map[[2]uint64]*entry
 	byID    map[uint32]*entry
 	lru     *list.List
 	maxSize int
-
-	nextHandle uint32
+	seed    maphash.Seed
 }
 
 type entry struct {
-	hash       [32]byte
+	hash       [2]uint64
 	kittyImgID uint32
 	refCount   int
 	lruElement *list.Element
@@ -32,21 +31,32 @@ type entry struct {
 // NewCache creates a new upload cache with the given maximum number of entries.
 func NewCache(maxSize int) *Cache {
 	return &Cache{
-		byHash:  make(map[[32]byte]*entry),
+		byHash:  make(map[[2]uint64]*entry),
 		byID:    make(map[uint32]*entry),
 		lru:     list.New(),
 		maxSize: maxSize,
+		seed:    maphash.MakeSeed(),
 	}
+}
+
+// hash128 computes a 128-bit hash of data using two seeded maphash passes.
+// This is a placeholder until xxh3-128 is added as a dependency.
+func (c *Cache) hash128(data []byte) [2]uint64 {
+	var h maphash.Hash
+	h.SetSeed(c.seed)
+	h.Write(data)
+	lo := h.Sum64()
+	h.Reset()
+	h.WriteByte(0xff) // differentiate second pass
+	h.Write(data)
+	hi := h.Sum64()
+	return [2]uint64{lo, hi}
 }
 
 // Lookup checks if data with the given content hash exists in the cache.
 // Returns the kitty image ID and whether it was found.
 func (c *Cache) Lookup(data []byte) (uint32, bool) {
-	hash := sha256.Sum256(data)
-
-	c.mu.RLock()
-	defer c.mu.RUnlock()
-
+	hash := c.hash128(data)
 	if e, ok := c.byHash[hash]; ok {
 		return e.kittyImgID, true
 	}
@@ -56,25 +66,27 @@ func (c *Cache) Lookup(data []byte) (uint32, bool) {
 // Store adds a new entry to the cache. Returns evicted kitty image IDs
 // that should be deleted from the terminal.
 func (c *Cache) Store(data []byte, kittyImgID uint32) (evicted []uint32) {
-	hash := sha256.Sum256(data)
+	hash := c.hash128(data)
 
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
-	// Already cached
+	// Already cached — bump refcount and LRU position
 	if e, ok := c.byHash[hash]; ok {
 		e.refCount++
 		c.lru.MoveToFront(e.lruElement)
 		return nil
 	}
 
-	// Evict if at capacity
+	// Evict LRU entries at capacity (only evict unreferenced entries)
 	for c.lru.Len() >= c.maxSize {
 		back := c.lru.Back()
 		if back == nil {
 			break
 		}
 		victim := back.Value.(*entry)
+		if victim.refCount > 0 {
+			// Don't evict entries with active references — cache is over capacity
+			// but all entries are in use. Allow the cache to grow temporarily.
+			break
+		}
 		evicted = append(evicted, victim.kittyImgID)
 		c.lru.Remove(back)
 		delete(c.byHash, victim.hash)
@@ -95,9 +107,6 @@ func (c *Cache) Store(data []byte, kittyImgID uint32) (evicted []uint32) {
 
 // Release decrements the reference count for a kitty image ID.
 func (c *Cache) Release(kittyImgID uint32) {
-	c.mu.Lock()
-	defer c.mu.Unlock()
-
 	if e, ok := c.byID[kittyImgID]; ok {
 		e.refCount--
 	}
