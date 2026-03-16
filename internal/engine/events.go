@@ -7,6 +7,21 @@ type Event interface {
 	eventTag()
 }
 
+// HelloRequest asks the engine for a hello handshake response.
+type HelloRequest struct {
+	ClientID string
+	Params   protocol.HelloParams
+	Reply    chan<- HelloReply
+}
+
+func (HelloRequest) eventTag() {}
+
+// HelloReply is the response to a HelloRequest.
+type HelloReply struct {
+	Result protocol.HelloResult
+	Err    error
+}
+
 // PlaceRequest asks the engine to create a new placement.
 type PlaceRequest struct {
 	ClientID string
@@ -95,3 +110,33 @@ type ClientDisconnect struct {
 }
 
 func (ClientDisconnect) eventTag() {}
+
+// ListRequest asks the engine for active placements.
+type ListRequest struct {
+	ClientID string
+	Reply    chan<- ListReply
+}
+
+func (ListRequest) eventTag() {}
+
+// ListReply is the response to a ListRequest.
+type ListReply struct {
+	Result protocol.ListResult
+}
+
+// StatusRequest asks the engine for daemon status.
+type StatusRequest struct {
+	Reply chan<- StatusReply
+}
+
+func (StatusRequest) eventTag() {}
+
+// StatusReply is the response to a StatusRequest.
+type StatusReply struct {
+	Result protocol.StatusResult
+}
+
+// StopRequest asks the daemon to shut down gracefully.
+type StopRequest struct{}
+
+func (StopRequest) eventTag() {}

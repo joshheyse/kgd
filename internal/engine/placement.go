@@ -71,6 +71,16 @@ func (p *Placement) ScreenPos(panes map[string]PaneGeometry, wins map[int]WinGeo
 	}
 }
 
+// PlacementInfo interface methods for graphics rendering.
+
+func (p *Placement) GetWidth() int    { return p.Width }
+func (p *Placement) GetHeight() int   { return p.Height }
+func (p *Placement) GetSrcX() int     { return p.SrcX }
+func (p *Placement) GetSrcY() int     { return p.SrcY }
+func (p *Placement) GetSrcW() int     { return p.SrcW }
+func (p *Placement) GetSrcH() int     { return p.SrcH }
+func (p *Placement) GetZIndex() int32 { return p.ZIndex }
+
 // PaneGeometry describes a tmux pane's position and size in terminal coordinates.
 type PaneGeometry struct {
 	ID     string

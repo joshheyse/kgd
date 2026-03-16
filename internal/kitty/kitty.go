@@ -21,29 +21,35 @@ type TransmitCommand struct {
 // Serialize encodes the transmit command with the given base64 data.
 // For data larger than 4096 bytes, it produces chunked APC sequences.
 func (c TransmitCommand) Serialize(data []byte) string {
+	return strings.Join(c.SerializeChunks(data), "")
+}
+
+// SerializeChunks returns individual APC sequences, one per chunk.
+// Use this when each chunk needs independent wrapping (e.g., tmux DCS passthrough).
+func (c TransmitCommand) SerializeChunks(data []byte) []string {
 	b64 := base64.StdEncoding.EncodeToString(data)
 	format := formatCode(c.Format)
 
 	if len(b64) <= chunkSize {
-		return fmt.Sprintf("\x1b_Ga=t,f=%d,i=%d,s=%d,v=%d;%s\x1b\\",
-			format, c.ImageID, c.Width, c.Height, b64)
+		return []string{fmt.Sprintf("\x1b_Ga=t,f=%d,i=%d,s=%d,v=%d;%s\x1b\\",
+			format, c.ImageID, c.Width, c.Height, b64)}
 	}
 
-	var buf strings.Builder
 	chunks := splitChunks(b64, chunkSize)
+	result := make([]string, len(chunks))
 	for i, chunk := range chunks {
 		more := 1
 		if i == len(chunks)-1 {
 			more = 0
 		}
 		if i == 0 {
-			fmt.Fprintf(&buf, "\x1b_Ga=t,f=%d,i=%d,s=%d,v=%d,m=%d;%s\x1b\\",
+			result[i] = fmt.Sprintf("\x1b_Ga=t,f=%d,i=%d,s=%d,v=%d,m=%d;%s\x1b\\",
 				format, c.ImageID, c.Width, c.Height, more, chunk)
 		} else {
-			fmt.Fprintf(&buf, "\x1b_Gm=%d;%s\x1b\\", more, chunk)
+			result[i] = fmt.Sprintf("\x1b_Gm=%d;%s\x1b\\", more, chunk)
 		}
 	}
-	return buf.String()
+	return result
 }
 
 // PlaceCommand builds a kitty graphics protocol placement command.
@@ -104,9 +110,6 @@ type DeleteCommand struct {
 // Serialize encodes the delete command as a kitty APC sequence.
 func (c DeleteCommand) Serialize() string {
 	deleteType := "d=i"
-	if c.PlacementID != 0 {
-		deleteType = "d=i"
-	}
 	if c.Free {
 		deleteType = "d=I"
 	}

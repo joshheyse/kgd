@@ -11,13 +11,44 @@ const (
 	MethodRegisterWin   = "register_win"
 	MethodUpdateScroll  = "update_scroll"
 	MethodUnregisterWin = "unregister_win"
+	MethodList          = "list"
+	MethodStatus        = "status"
+	MethodStop          = "stop"
 )
+
+// Notification method names (daemon → client).
+const (
+	NotifyEvicted           = "evicted"
+	NotifyTopologyChanged   = "topology_changed"
+	NotifyVisibilityChanged = "visibility_changed"
+	NotifyThemeChanged      = "theme_changed"
+)
+
+// Color represents an RGB color with 16-bit per channel precision.
+type Color struct {
+	R uint16 `msgpack:"r"`
+	G uint16 `msgpack:"g"`
+	B uint16 `msgpack:"b"`
+}
 
 // HelloParams is sent by the client on connect.
 type HelloParams struct {
 	ClientType string `msgpack:"client_type"`
 	PID        int    `msgpack:"pid"`
 	Label      string `msgpack:"label"`
+	SessionID  string `msgpack:"session_id,omitempty"`
+}
+
+// HelloResult is returned after a successful hello handshake.
+type HelloResult struct {
+	ClientID   string `msgpack:"client_id"`
+	Cols       int    `msgpack:"cols"`
+	Rows       int    `msgpack:"rows"`
+	CellWidth  int    `msgpack:"cell_width"`
+	CellHeight int    `msgpack:"cell_height"`
+	InTmux     bool   `msgpack:"in_tmux"`
+	FG         Color  `msgpack:"fg"`
+	BG         Color  `msgpack:"bg"`
 }
 
 // UploadParams transmits image data to the daemon.
@@ -91,4 +122,58 @@ type UpdateScrollParams struct {
 // UnregisterWinParams unregisters a neovim window.
 type UnregisterWinParams struct {
 	WinID int `msgpack:"win_id"`
+}
+
+// EvictedParams notifies a client that an image was evicted from the cache.
+type EvictedParams struct {
+	Handle uint32 `msgpack:"handle"`
+}
+
+// TopologyChangedParams notifies clients of a terminal layout change.
+type TopologyChangedParams struct {
+	Cols       int `msgpack:"cols"`
+	Rows       int `msgpack:"rows"`
+	CellWidth  int `msgpack:"cell_width"`
+	CellHeight int `msgpack:"cell_height"`
+}
+
+// VisibilityChangedParams notifies a client that a placement's visibility changed.
+type VisibilityChangedParams struct {
+	PlacementID uint32 `msgpack:"placement_id"`
+	Visible     bool   `msgpack:"visible"`
+}
+
+// ThemeChangedParams notifies clients of a terminal color change.
+type ThemeChangedParams struct {
+	FG Color `msgpack:"fg"`
+	BG Color `msgpack:"bg"`
+}
+
+// ListResult is returned by the list command.
+type ListResult struct {
+	Placements []PlacementInfo `msgpack:"placements"`
+}
+
+// PlacementInfo describes a single active placement.
+type PlacementInfo struct {
+	PlacementID uint32 `msgpack:"placement_id"`
+	ClientID    string `msgpack:"client_id"`
+	Handle      uint32 `msgpack:"handle"`
+	Visible     bool   `msgpack:"visible"`
+	Row         int    `msgpack:"row"`
+	Col         int    `msgpack:"col"`
+}
+
+// StatusResult is returned by the status command.
+type StatusResult struct {
+	Clients    int `msgpack:"clients"`
+	Placements int `msgpack:"placements"`
+	Images     int `msgpack:"images"`
+	Cols       int `msgpack:"cols"`
+	Rows       int `msgpack:"rows"`
+}
+
+// RPCError represents an error in an RPC response.
+type RPCError struct {
+	Message string `msgpack:"message"`
 }

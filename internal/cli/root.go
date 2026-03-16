@@ -16,4 +16,12 @@ func Execute() error {
 
 func init() {
 	rootCmd.AddCommand(serveCmd)
+	rootCmd.AddCommand(initCmd)
+	rootCmd.AddCommand(stopCmd)
+	rootCmd.AddCommand(uploadCmd)
+	rootCmd.AddCommand(placeCmd)
+	rootCmd.AddCommand(unplaceCmd)
+	rootCmd.AddCommand(listCmd)
+	rootCmd.AddCommand(statusCmd)
+	rootCmd.AddCommand(diagnoseCmd)
 }
