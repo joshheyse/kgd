@@ -1,0 +1,13 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kgdclient"
+version = "0.1.0"
+description = "Python client for kgd (Kitty Graphics Daemon)"
+requires-python = ">=3.9"
+dependencies = ["msgpack>=1.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0"]

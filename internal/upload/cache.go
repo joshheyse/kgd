@@ -2,7 +2,8 @@ package upload
 
 import (
 	"container/list"
-	"hash/maphash"
+
+	"github.com/zeebo/xxh3"
 )
 
 // Cache is a content-addressed LRU upload cache. It maps image data (by hash)
@@ -11,14 +12,12 @@ import (
 // The cache is owned exclusively by the PlacementEngine goroutine — no mutex
 // needed. All access is single-threaded through the engine's event loop.
 //
-// Uses maphash for content addressing (fast, non-cryptographic). Will be
-// replaced with xxh3-128 (github.com/zeebo/xxh3) when the dependency is added.
+// Uses xxh3-128 for content addressing (fast, non-cryptographic).
 type Cache struct {
 	byHash  map[[2]uint64]*entry
 	byID    map[uint32]*entry
 	lru     *list.List
 	maxSize int
-	seed    maphash.Seed
 }
 
 type entry struct {
@@ -35,28 +34,19 @@ func NewCache(maxSize int) *Cache {
 		byID:    make(map[uint32]*entry),
 		lru:     list.New(),
 		maxSize: maxSize,
-		seed:    maphash.MakeSeed(),
 	}
 }
 
-// hash128 computes a 128-bit hash of data using two seeded maphash passes.
-// This is a placeholder until xxh3-128 is added as a dependency.
-func (c *Cache) hash128(data []byte) [2]uint64 {
-	var h maphash.Hash
-	h.SetSeed(c.seed)
-	h.Write(data)
-	lo := h.Sum64()
-	h.Reset()
-	h.WriteByte(0xff) // differentiate second pass
-	h.Write(data)
-	hi := h.Sum64()
-	return [2]uint64{lo, hi}
+// hash128 computes a 128-bit xxh3 hash of the data.
+func hash128(data []byte) [2]uint64 {
+	h := xxh3.Hash128(data)
+	return [2]uint64{h.Lo, h.Hi}
 }
 
 // Lookup checks if data with the given content hash exists in the cache.
 // Returns the kitty image ID and whether it was found.
 func (c *Cache) Lookup(data []byte) (uint32, bool) {
-	hash := c.hash128(data)
+	hash := hash128(data)
 	if e, ok := c.byHash[hash]; ok {
 		return e.kittyImgID, true
 	}
@@ -66,7 +56,7 @@ func (c *Cache) Lookup(data []byte) (uint32, bool) {
 // Store adds a new entry to the cache. Returns evicted kitty image IDs
 // that should be deleted from the terminal.
 func (c *Cache) Store(data []byte, kittyImgID uint32) (evicted []uint32) {
-	hash := c.hash128(data)
+	hash := hash128(data)
 
 	// Already cached — bump refcount and LRU position
 	if e, ok := c.byHash[hash]; ok {

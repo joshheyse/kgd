@@ -11,6 +11,8 @@ require (
 
 require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
+	github.com/klauspost/cpuid/v2 v2.2.10 // indirect
 	github.com/spf13/pflag v1.0.6 // indirect
 	github.com/vmihailenco/tagparser/v2 v2.0.0 // indirect
+	github.com/zeebo/xxh3 v1.1.0 // indirect
 )
