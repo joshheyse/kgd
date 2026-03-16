@@ -61,6 +61,9 @@ func (m *mockGraphics) Delete(imageID, placementID uint32, free bool) error {
 	return nil
 }
 
+func (m *mockGraphics) BeginBatch() {}
+func (m *mockGraphics) FlushBatch() {}
+
 func testEngine(t *testing.T, gfx graphics.Graphics) (*Engine, context.CancelFunc) {
 	t.Helper()
 	w := &tty.Writer{
@@ -237,6 +240,200 @@ func TestClientDisconnectCleansUp(t *testing.T) {
 	// Should have delete for the placement
 	if len(gfx.deletes) != 1 {
 		t.Fatalf("expected 1 delete on disconnect, got %d", len(gfx.deletes))
+	}
+}
+
+func sendPlace(t *testing.T, eng *Engine, clientID string, handle uint32, anchor protocol.Anchor, w, h int) uint32 {
+	t.Helper()
+	reply := make(chan PlaceReply, 1)
+	eng.Events <- PlaceRequest{
+		ClientID: clientID,
+		Params: protocol.PlaceParams{
+			Handle: handle,
+			Anchor: anchor,
+			Width:  w,
+			Height: h,
+		},
+		Reply: reply,
+	}
+	select {
+	case r := <-reply:
+		if r.Err != nil {
+			t.Fatalf("place error: %v", r.Err)
+		}
+		return r.PlacementID
+	case <-time.After(2 * time.Second):
+		t.Fatal("place timed out")
+		return 0
+	}
+}
+
+func TestPaneAnchorPlacement(t *testing.T) {
+	gfx := &mockGraphics{}
+	eng, cancel := testEngine(t, gfx)
+	defer cancel()
+
+	// Set up pane geometry
+	eng.Events <- UpdatePanes{Panes: []PaneGeometry{
+		{ID: "%0", Top: 5, Left: 10, Width: 80, Height: 24, Active: true},
+	}}
+	time.Sleep(50 * time.Millisecond)
+
+	handle := sendUpload(t, eng, "client1", []byte("pane-img"))
+	sendPlace(t, eng, "client1", handle, protocol.Anchor{
+		Type:   "pane",
+		PaneID: "%0",
+		Row:    2,
+		Col:    3,
+	}, 10, 5)
+
+	time.Sleep(50 * time.Millisecond)
+	gfx.mu.Lock()
+	defer gfx.mu.Unlock()
+	if len(gfx.places) != 1 {
+		t.Fatalf("expected 1 place, got %d", len(gfx.places))
+	}
+	// row=5+2=7, col=10+3=13
+	if gfx.places[0].Row != 7 || gfx.places[0].Col != 13 {
+		t.Errorf("expected row=7 col=13, got row=%d col=%d", gfx.places[0].Row, gfx.places[0].Col)
+	}
+}
+
+func TestPaneAnchorUnknownPaneNotVisible(t *testing.T) {
+	gfx := &mockGraphics{}
+	eng, cancel := testEngine(t, gfx)
+	defer cancel()
+
+	handle := sendUpload(t, eng, "client1", []byte("no-pane-img"))
+	sendPlace(t, eng, "client1", handle, protocol.Anchor{
+		Type:   "pane",
+		PaneID: "%99", // doesn't exist
+		Row:    0,
+		Col:    0,
+	}, 5, 5)
+
+	time.Sleep(50 * time.Millisecond)
+	gfx.mu.Lock()
+	defer gfx.mu.Unlock()
+	// Should not be placed (pane not found)
+	if len(gfx.places) != 0 {
+		t.Fatalf("expected 0 places for unknown pane, got %d", len(gfx.places))
+	}
+}
+
+func TestInactivePaneSuppressesPlacement(t *testing.T) {
+	gfx := &mockGraphics{}
+	eng, cancel := testEngine(t, gfx)
+	defer cancel()
+
+	// Set up an inactive pane
+	eng.Events <- UpdatePanes{Panes: []PaneGeometry{
+		{ID: "%0", Top: 0, Left: 0, Width: 80, Height: 24, Active: false},
+	}}
+	time.Sleep(50 * time.Millisecond)
+
+	handle := sendUpload(t, eng, "client1", []byte("inactive-img"))
+	sendPlace(t, eng, "client1", handle, protocol.Anchor{
+		Type:   "pane",
+		PaneID: "%0",
+		Row:    0,
+		Col:    0,
+	}, 5, 5)
+
+	time.Sleep(50 * time.Millisecond)
+	gfx.mu.Lock()
+	defer gfx.mu.Unlock()
+	// Should not be placed (pane inactive)
+	if len(gfx.places) != 0 {
+		t.Fatalf("expected 0 places for inactive pane, got %d", len(gfx.places))
+	}
+}
+
+func TestTopologyUpdateTriggersRecompute(t *testing.T) {
+	gfx := &mockGraphics{}
+	eng, cancel := testEngine(t, gfx)
+	defer cancel()
+
+	// Place in pane %0 (initially unknown → not visible)
+	handle := sendUpload(t, eng, "client1", []byte("topo-img"))
+	sendPlace(t, eng, "client1", handle, protocol.Anchor{
+		Type:   "pane",
+		PaneID: "%0",
+		Row:    0,
+		Col:    0,
+	}, 5, 5)
+
+	time.Sleep(50 * time.Millisecond)
+	gfx.mu.Lock()
+	if len(gfx.places) != 0 {
+		t.Fatalf("expected 0 places before pane appears, got %d", len(gfx.places))
+	}
+	gfx.mu.Unlock()
+
+	// Now the pane appears via topology update
+	eng.Events <- UpdatePanes{Panes: []PaneGeometry{
+		{ID: "%0", Top: 0, Left: 0, Width: 80, Height: 24, Active: true},
+	}}
+
+	time.Sleep(100 * time.Millisecond)
+	gfx.mu.Lock()
+	defer gfx.mu.Unlock()
+	// Should now be placed
+	if len(gfx.places) != 1 {
+		t.Fatalf("expected 1 place after topology update, got %d", len(gfx.places))
+	}
+}
+
+func TestWindowSwitchHidesAndShowsPlacements(t *testing.T) {
+	gfx := &mockGraphics{}
+	eng, cancel := testEngine(t, gfx)
+	defer cancel()
+
+	// Start with pane active
+	eng.Events <- UpdatePanes{Panes: []PaneGeometry{
+		{ID: "%0", Top: 0, Left: 0, Width: 80, Height: 24, Active: true},
+	}}
+	time.Sleep(50 * time.Millisecond)
+
+	handle := sendUpload(t, eng, "client1", []byte("switch-img"))
+	sendPlace(t, eng, "client1", handle, protocol.Anchor{
+		Type:   "pane",
+		PaneID: "%0",
+		Row:    0,
+		Col:    0,
+	}, 5, 5)
+
+	time.Sleep(50 * time.Millisecond)
+	gfx.mu.Lock()
+	if len(gfx.places) != 1 {
+		t.Fatalf("expected 1 place, got %d", len(gfx.places))
+	}
+	gfx.mu.Unlock()
+
+	// Switch window — pane becomes inactive
+	eng.Events <- UpdatePanes{Panes: []PaneGeometry{
+		{ID: "%0", Top: 0, Left: 0, Width: 80, Height: 24, Active: false},
+	}}
+
+	time.Sleep(100 * time.Millisecond)
+	gfx.mu.Lock()
+	// Should have deleted the placement
+	if len(gfx.deletes) != 1 {
+		t.Fatalf("expected 1 delete on window switch, got %d", len(gfx.deletes))
+	}
+	gfx.mu.Unlock()
+
+	// Switch back — pane becomes active again
+	eng.Events <- UpdatePanes{Panes: []PaneGeometry{
+		{ID: "%0", Top: 0, Left: 0, Width: 80, Height: 24, Active: true},
+	}}
+
+	time.Sleep(100 * time.Millisecond)
+	gfx.mu.Lock()
+	defer gfx.mu.Unlock()
+	// Should have re-placed
+	if len(gfx.places) != 2 {
+		t.Fatalf("expected 2 places (initial + re-place), got %d", len(gfx.places))
 	}
 }
 

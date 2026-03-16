@@ -9,8 +9,10 @@ import (
 
 // TTYGraphics implements Graphics by writing kitty protocol sequences to a TTY.
 type TTYGraphics struct {
-	writer *tty.Writer
-	inTmux bool
+	writer   *tty.Writer
+	inTmux   bool
+	batching bool
+	batch    strings.Builder
 }
 
 // NewTTYGraphics creates a new TTYGraphics backed by the given TTY writer.
@@ -21,6 +23,7 @@ func NewTTYGraphics(writer *tty.Writer) *TTYGraphics {
 	}
 }
 
+// Transmit always writes immediately (not batched) due to large payload size.
 func (g *TTYGraphics) Transmit(id uint32, data []byte, format string, width, height int) error {
 	cmd := kitty.TransmitCommand{
 		ImageID: id,
@@ -59,6 +62,10 @@ func (g *TTYGraphics) Place(imageID, placementID uint32, row, col int, p Placeme
 	if g.inTmux {
 		seq = kitty.WrapTmux(seq)
 	}
+	if g.batching {
+		g.batch.WriteString(seq)
+		return nil
+	}
 	g.writer.Writes <- []byte(seq)
 	return nil
 }
@@ -73,6 +80,23 @@ func (g *TTYGraphics) Delete(imageID, placementID uint32, free bool) error {
 	if g.inTmux {
 		seq = kitty.WrapTmux(seq)
 	}
+	if g.batching {
+		g.batch.WriteString(seq)
+		return nil
+	}
 	g.writer.Writes <- []byte(seq)
 	return nil
+}
+
+func (g *TTYGraphics) BeginBatch() {
+	g.batching = true
+	g.batch.Reset()
+}
+
+func (g *TTYGraphics) FlushBatch() {
+	if g.batch.Len() > 0 {
+		g.writer.Writes <- []byte(g.batch.String())
+	}
+	g.batch.Reset()
+	g.batching = false
 }

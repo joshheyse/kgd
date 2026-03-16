@@ -12,6 +12,13 @@ type Graphics interface {
 	// Delete removes a placement or frees an image from the terminal.
 	// If free is true, also frees the stored image data (kitty d=I vs d=i).
 	Delete(imageID, placementID uint32, free bool) error
+
+	// BeginBatch starts accumulating Place/Delete operations.
+	// Call FlushBatch to send them as a single atomic write.
+	BeginBatch()
+
+	// FlushBatch sends all accumulated operations as one write.
+	FlushBatch()
 }
 
 // PlacementInfo provides placement details needed for rendering.

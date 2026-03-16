@@ -134,8 +134,8 @@ func (e *Engine) handle(ev Event) {
 		e.handleRegisterWin(ev)
 	case UnregisterWin:
 		e.handleUnregisterWin(ev)
-	case TopologyEvent:
-		e.handleTopology(ev)
+	case UpdatePanes:
+		e.handleUpdatePanes(ev)
 	case ClientDisconnect:
 		e.handleClientDisconnect(ev)
 	case ListRequest:
@@ -328,9 +328,13 @@ func (e *Engine) handleUnregisterWin(ev UnregisterWin) {
 	slog.Debug("window unregistered", "win_id", ev.WinID)
 }
 
-func (e *Engine) handleTopology(_ TopologyEvent) {
+func (e *Engine) handleUpdatePanes(ev UpdatePanes) {
+	e.panes = make(map[string]PaneGeometry, len(ev.Panes))
+	for _, p := range ev.Panes {
+		e.panes[p.ID] = p
+	}
 	e.recomputePlacements()
-	slog.Debug("topology changed, recomputed placements")
+	slog.Debug("pane topology updated", "panes", len(ev.Panes))
 }
 
 func (e *Engine) handleClientDisconnect(ev ClientDisconnect) {
@@ -399,6 +403,7 @@ func (e *Engine) handleStop() {
 
 // drain empties the event channel on shutdown, replying to any pending requests
 // with errors so client goroutines don't block.
+// NOTE: Any new Event type with a Reply channel must be handled here.
 func (e *Engine) drain() {
 	for {
 		select {
@@ -456,7 +461,13 @@ func (e *Engine) notifyEviction(kittyID uint32) {
 }
 
 // recomputePlacements re-resolves all placement positions and updates visibility.
+// Place/Delete operations are batched into a single atomic write to prevent tearing.
 func (e *Engine) recomputePlacements() {
+	if e.gfx != nil {
+		e.gfx.BeginBatch()
+		defer e.gfx.FlushBatch()
+	}
+
 	for _, p := range e.placements {
 		row, col, visible := p.ScreenPos(e.panes, e.wins)
 		wasVisible := p.Visible

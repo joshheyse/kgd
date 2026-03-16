@@ -14,6 +14,7 @@ import (
 	"github.com/joshheyse/kgd/internal/engine"
 	"github.com/joshheyse/kgd/internal/graphics"
 	"github.com/joshheyse/kgd/internal/rpc"
+	"github.com/joshheyse/kgd/internal/topology"
 	"github.com/joshheyse/kgd/internal/tty"
 	"github.com/joshheyse/kgd/internal/upload"
 )
@@ -87,6 +88,16 @@ func (d *Daemon) Run(ctx context.Context) error {
 		defer wg.Done()
 		d.engine.Run(ctx)
 	}()
+
+	// Start tmux watcher if in tmux
+	if d.writer.InTmux() {
+		tmuxW := topology.NewTmuxWatcher(d.engine)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			tmuxW.Run(ctx)
+		}()
+	}
 
 	// Start the RPC server (blocks until ctx is cancelled)
 	if err := d.server.Run(ctx); err != nil {

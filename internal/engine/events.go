@@ -99,10 +99,12 @@ type UnregisterWin struct {
 
 func (UnregisterWin) eventTag() {}
 
-// TopologyEvent signals a change in tmux/terminal layout.
-type TopologyEvent struct{}
+// UpdatePanes replaces the engine's pane geometry map with fresh data from tmux.
+type UpdatePanes struct {
+	Panes []PaneGeometry
+}
 
-func (TopologyEvent) eventTag() {}
+func (UpdatePanes) eventTag() {}
 
 // ClientDisconnect signals that a client has disconnected.
 type ClientDisconnect struct {

@@ -40,6 +40,10 @@ func (p *Placement) ScreenPos(panes map[string]PaneGeometry, wins map[int]WinGeo
 		if !ok {
 			return 0, 0, false
 		}
+		// Suppress placements in non-active tmux windows
+		if !pane.Active {
+			return 0, 0, false
+		}
 		row := pane.Top + p.Anchor.Row
 		col := pane.Left + p.Anchor.Col
 		visible := p.Anchor.Row >= 0 && p.Anchor.Row < pane.Height &&
@@ -57,11 +61,21 @@ func (p *Placement) ScreenPos(panes map[string]PaneGeometry, wins map[int]WinGeo
 		}
 		row := screenRow
 		col := win.Left + p.Anchor.Col
-		// If inside a tmux pane, add pane offset
+		// If inside a tmux pane, add pane offset and check visibility
 		if win.PaneID != "" {
-			if pane, ok := panes[win.PaneID]; ok {
-				row += pane.Top
-				col += pane.Left
+			pane, ok := panes[win.PaneID]
+			if !ok {
+				return 0, 0, false
+			}
+			if !pane.Active {
+				return 0, 0, false
+			}
+			row += pane.Top
+			col += pane.Left
+			// Verify result is within pane bounds
+			if row < pane.Top || row >= pane.Top+pane.Height ||
+				col < pane.Left || col >= pane.Left+pane.Width {
+				return 0, 0, false
 			}
 		}
 		return row, col, true
@@ -88,6 +102,7 @@ type PaneGeometry struct {
 	Left   int
 	Width  int
 	Height int
+	Active bool // whether the pane's window is the active tmux window
 }
 
 // WinGeometry describes a neovim window's position within a pane.
