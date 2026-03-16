@@ -4,8 +4,6 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"sync/atomic"
-
 	"github.com/joshheyse/kgd/internal/allocator"
 	"github.com/joshheyse/kgd/internal/graphics"
 	"github.com/joshheyse/kgd/internal/protocol"
@@ -17,9 +15,10 @@ import (
 // mutable placement state. All other goroutines communicate with it via
 // the Events channel.
 type Engine struct {
-	Events  chan Event
-	writer  *tty.Writer
-	gfx     graphics.Graphics
+	Events chan Event
+	done   chan struct{} // closed when Run() exits, signals senders to stop
+	writer *tty.Writer
+	gfx    graphics.Graphics
 	idAlloc *allocator.IDAllocator
 	cache   *upload.Cache
 
@@ -28,7 +27,7 @@ type Engine struct {
 	clientImages  map[string]map[uint32]uint32 // clientID → handle → kittyImgID
 	panes         map[string]PaneGeometry
 	wins          map[int]WinGeometry
-	nextPlacement atomic.Uint32
+	nextPlacement uint32
 
 	// Terminal state
 	termSize   tty.WinSize
@@ -45,6 +44,7 @@ type Engine struct {
 func New(writer *tty.Writer, gfx graphics.Graphics, idAlloc *allocator.IDAllocator, cache *upload.Cache) *Engine {
 	return &Engine{
 		Events:       make(chan Event, 256),
+		done:         make(chan struct{}),
 		writer:       writer,
 		gfx:          gfx,
 		idAlloc:      idAlloc,
@@ -60,7 +60,9 @@ func New(writer *tty.Writer, gfx graphics.Graphics, idAlloc *allocator.IDAllocat
 func (e *Engine) Run(ctx context.Context) {
 	slog.Info("placement engine started")
 	defer slog.Info("placement engine stopped")
+	defer close(e.done)
 	defer e.drain()
+	defer e.cleanupRenderedPlacements()
 
 	for {
 		select {
@@ -98,6 +100,12 @@ func (e *Engine) Run(ctx context.Context) {
 	}
 }
 
+// Done returns a channel that's closed when the engine's Run loop exits.
+// Useful for senders to avoid blocking on e.Events after shutdown.
+func (e *Engine) Done() <-chan struct{} {
+	return e.done
+}
+
 // SetStopFunc sets the function used by StopRequest to cancel the daemon context.
 func (e *Engine) SetStopFunc(f context.CancelFunc) {
 	e.stopFunc = f
@@ -109,9 +117,14 @@ func (e *Engine) SetNotifier(n Notifier) {
 }
 
 // ClientDisconnected notifies the engine that a client has disconnected.
-// Safe to call from any goroutine.
-func (e *Engine) ClientDisconnected(clientID string) {
-	e.Events <- ClientDisconnect{ClientID: clientID}
+// Safe to call from any goroutine. Returns false if the engine has stopped.
+func (e *Engine) ClientDisconnected(clientID string) bool {
+	select {
+	case e.Events <- ClientDisconnect{ClientID: clientID}:
+		return true
+	case <-e.done:
+		return false
+	}
 }
 
 func (e *Engine) handle(ev Event) {
@@ -185,7 +198,8 @@ func (e *Engine) handlePlace(req PlaceRequest) {
 		return
 	}
 
-	id := e.nextPlacement.Add(1)
+	e.nextPlacement++
+	id := e.nextPlacement
 	p := &Placement{
 		ID:          id,
 		ClientID:    req.ClientID,
@@ -409,6 +423,21 @@ func (e *Engine) handleStop() {
 	}
 }
 
+// cleanupRenderedPlacements deletes all rendered placements from the terminal
+// so images don't persist on screen after shutdown.
+func (e *Engine) cleanupRenderedPlacements() {
+	if e.gfx == nil {
+		return
+	}
+	for _, p := range e.placements {
+		if p.Rendered {
+			if err := e.gfx.Delete(p.KittyImgID, p.ID, false); err != nil {
+				slog.Error("failed to delete placement on shutdown", "error", err)
+			}
+		}
+	}
+}
+
 // drain empties the event channel on shutdown, replying to any pending requests
 // with errors so client goroutines don't block.
 // NOTE: Any new Event type with a Reply channel must be handled here.
@@ -453,16 +482,16 @@ func (e *Engine) assignHandle(clientID string, kittyID uint32) uint32 {
 	return handle
 }
 
-// notifyEviction finds clients whose handles reference an evicted kitty image ID
-// and notifies them.
+// notifyEviction finds clients whose handles reference an evicted kitty image ID,
+// removes the stale handles, and notifies the clients.
 func (e *Engine) notifyEviction(kittyID uint32) {
-	if e.notifier == nil {
-		return
-	}
 	for clientID, images := range e.clientImages {
 		for handle, kid := range images {
 			if kid == kittyID {
-				e.notifier.NotifyClient(clientID, protocol.NotifyEvicted, protocol.EvictedParams{Handle: handle})
+				delete(images, handle)
+				if e.notifier != nil {
+					e.notifier.NotifyClient(clientID, protocol.NotifyEvicted, protocol.EvictedParams{Handle: handle})
+				}
 			}
 		}
 	}
@@ -507,8 +536,11 @@ func (e *Engine) recomputePlacements() {
 			if err := e.gfx.Delete(p.KittyImgID, p.ID, false); err != nil {
 				slog.Error("failed to delete moved placement", "error", err)
 			}
+			p.Rendered = false
 			if err := e.gfx.Place(p.KittyImgID, p.ID, row, col, p); err != nil {
 				slog.Error("failed to re-place moved placement", "error", err)
+			} else {
+				p.Rendered = true
 			}
 		}
 

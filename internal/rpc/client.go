@@ -163,7 +163,12 @@ func (c *Client) handleNotification(dec *msgpack.Decoder) error {
 	}
 
 	if paramsLen > 0 {
-		_, _ = c.dispatch(method, dec)
+		_, dispatchErr := c.dispatch(method, dec)
+		// Fatal decode errors corrupt the stream — must disconnect
+		var fe *fatalError
+		if errors.As(dispatchErr, &fe) {
+			return fe
+		}
 		for i := 1; i < paramsLen; i++ {
 			if err := skipValue(dec); err != nil {
 				return fmt.Errorf("skipping extra param: %w", err)
@@ -181,27 +186,29 @@ func (c *Client) dispatchNoParams(method string) (any, error) {
 	switch method {
 	case protocol.MethodList:
 		reply := make(chan engine.ListReply, 1)
-		c.engine.Events <- engine.ListRequest{
+		r, err := sendAndWait(c, engine.ListRequest{
 			ClientID: c.ID,
 			Reply:    reply,
+		}, reply)
+		if err != nil {
+			return nil, err
 		}
-		r := <-reply
 		return r.Result, nil
 	case protocol.MethodStatus:
 		reply := make(chan engine.StatusReply, 1)
-		c.engine.Events <- engine.StatusRequest{
+		r, err := sendAndWait(c, engine.StatusRequest{
 			Reply: reply,
+		}, reply)
+		if err != nil {
+			return nil, err
 		}
-		r := <-reply
 		return r.Result, nil
 	case protocol.MethodStop:
-		c.engine.Events <- engine.StopRequest{}
-		return nil, nil
+		return nil, c.sendEvent(engine.StopRequest{})
 	case protocol.MethodUnplaceAll:
-		c.engine.Events <- engine.UnplaceAllRequest{
+		return nil, c.sendEvent(engine.UnplaceAllRequest{
 			ClientID: c.ID,
-		}
-		return nil, nil
+		})
 	default:
 		return nil, fmt.Errorf("unknown method: %s", method)
 	}

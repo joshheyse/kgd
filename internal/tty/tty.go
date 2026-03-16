@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 
 	"golang.org/x/sys/unix"
@@ -26,8 +27,9 @@ type Writer struct {
 	Size   chan WinSize
 	Colors chan TermColors
 
-	ttyFile *os.File
-	inTmux  bool
+	ttyFile   *os.File
+	closeOnce sync.Once
+	inTmux    bool
 }
 
 // NewWriter opens /dev/tty and queries its initial size.
@@ -53,12 +55,15 @@ func (w *Writer) InTmux() bool {
 	return w.inTmux
 }
 
-// Close closes the TTY file descriptor. Safe to call if Run() was never called.
+// Close closes the TTY file descriptor. Safe to call multiple times.
 func (w *Writer) Close() error {
-	if w.ttyFile != nil {
-		return w.ttyFile.Close()
-	}
-	return nil
+	var err error
+	w.closeOnce.Do(func() {
+		if w.ttyFile != nil {
+			err = w.ttyFile.Close()
+		}
+	})
+	return err
 }
 
 // QuerySize queries the current terminal dimensions via TIOCGWINSZ.
@@ -79,7 +84,7 @@ func (w *Writer) QuerySize() (WinSize, error) {
 func (w *Writer) Run(ctx context.Context) {
 	slog.Info("tty writer started", "tmux", w.inTmux)
 	defer slog.Info("tty writer stopped")
-	defer w.ttyFile.Close()
+	defer w.Close()
 
 	// Send initial size
 	if sz, err := w.QuerySize(); err == nil {

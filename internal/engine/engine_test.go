@@ -791,6 +791,56 @@ func TestNvimWinRegisterAfterPlace(t *testing.T) {
 	}
 }
 
+func TestMovedPlacementDeletesAndRePlaces(t *testing.T) {
+	gfx := &mockGraphics{}
+	eng, cancel := testEngine(t, gfx)
+	defer cancel()
+
+	// Set up pane at position (0, 0)
+	eng.Events <- UpdatePanes{Panes: []PaneGeometry{
+		{ID: "%0", Top: 0, Left: 0, Width: 80, Height: 24, Active: true},
+	}}
+	time.Sleep(50 * time.Millisecond)
+
+	handle := sendUpload(t, eng, "client1", []byte("move-img"))
+	sendPlace(t, eng, "client1", handle, protocol.Anchor{
+		Type:   "pane",
+		PaneID: "%0",
+		Row:    5,
+		Col:    10,
+	}, 10, 5)
+
+	time.Sleep(50 * time.Millisecond)
+	gfx.mu.Lock()
+	if len(gfx.places) != 1 {
+		t.Fatalf("expected 1 place, got %d", len(gfx.places))
+	}
+	if gfx.places[0].Row != 5 || gfx.places[0].Col != 10 {
+		t.Errorf("expected row=5 col=10, got row=%d col=%d", gfx.places[0].Row, gfx.places[0].Col)
+	}
+	gfx.mu.Unlock()
+
+	// Move the pane (changes coordinates of the placement)
+	eng.Events <- UpdatePanes{Panes: []PaneGeometry{
+		{ID: "%0", Top: 3, Left: 5, Width: 80, Height: 24, Active: true},
+	}}
+
+	time.Sleep(100 * time.Millisecond)
+	gfx.mu.Lock()
+	defer gfx.mu.Unlock()
+	// Should delete the old placement and re-place at new coords
+	if len(gfx.deletes) != 1 {
+		t.Fatalf("expected 1 delete for moved placement, got %d", len(gfx.deletes))
+	}
+	if len(gfx.places) != 2 {
+		t.Fatalf("expected 2 places (initial + re-place), got %d", len(gfx.places))
+	}
+	// New position: row=3+5=8, col=5+10=15
+	if gfx.places[1].Row != 8 || gfx.places[1].Col != 15 {
+		t.Errorf("expected row=8 col=15, got row=%d col=%d", gfx.places[1].Row, gfx.places[1].Col)
+	}
+}
+
 func TestHelloReturnsTerminalInfo(t *testing.T) {
 	gfx := &mockGraphics{}
 	eng, cancel := testEngine(t, gfx)

@@ -31,6 +31,32 @@ func TestTransmitCommandSmallPayload(t *testing.T) {
 	if !strings.Contains(result, "f=100") {
 		t.Error("expected PNG format code")
 	}
+	if !strings.Contains(result, "q=2") {
+		t.Error("expected quiet mode q=2")
+	}
+	// PNG should not have s= or v= keys
+	if strings.Contains(result, "s=") || strings.Contains(result, "v=") {
+		t.Error("PNG transmit should not include s=/v= keys")
+	}
+}
+
+func TestTransmitCommandRawFormat(t *testing.T) {
+	cmd := TransmitCommand{
+		ImageID: 1,
+		Format:  "rgb",
+		Width:   100,
+		Height:  50,
+	}
+
+	data := []byte("test")
+	result := cmd.Serialize(data)
+
+	if !strings.Contains(result, "s=100") {
+		t.Errorf("expected s=100 for raw format, got %q", result)
+	}
+	if !strings.Contains(result, "v=50") {
+		t.Errorf("expected v=50 for raw format, got %q", result)
+	}
 }
 
 func TestTransmitCommandChunking(t *testing.T) {
@@ -57,6 +83,10 @@ func TestTransmitCommandChunking(t *testing.T) {
 	}
 	if !strings.Contains(result, "m=0") {
 		t.Error("expected m=0 in final chunk")
+	}
+	// All chunks should have q=2
+	if strings.Count(result, "q=2") != count {
+		t.Errorf("expected q=2 in all %d chunks", count)
 	}
 }
 
@@ -86,6 +116,12 @@ func TestPlaceCommandSerialize(t *testing.T) {
 	if !strings.Contains(result, "p=42") {
 		t.Error("expected placement ID")
 	}
+	if !strings.Contains(result, "C=1") {
+		t.Error("expected C=1 to suppress cursor movement")
+	}
+	if !strings.Contains(result, "q=2") {
+		t.Error("expected quiet mode q=2")
+	}
 }
 
 func TestDeleteCommandSerialize(t *testing.T) {
@@ -104,6 +140,9 @@ func TestDeleteCommandSerialize(t *testing.T) {
 	}
 	if !strings.Contains(result, "i=5") {
 		t.Error("expected image ID")
+	}
+	if !strings.Contains(result, "q=2") {
+		t.Error("expected quiet mode q=2")
 	}
 }
 

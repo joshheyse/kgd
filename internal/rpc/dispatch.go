@@ -8,6 +8,33 @@ import (
 	"github.com/vmihailenco/msgpack/v5"
 )
 
+// sendEvent sends an event to the engine, returning an error if the engine has stopped.
+func (c *Client) sendEvent(ev engine.Event) error {
+	select {
+	case c.engine.Events <- ev:
+		return nil
+	case <-c.engine.Done():
+		return fmt.Errorf("engine stopped")
+	}
+}
+
+// sendAndWait sends an event to the engine and waits for a reply.
+func sendAndWait[T any](c *Client, ev engine.Event, reply <-chan T) (T, error) {
+	select {
+	case c.engine.Events <- ev:
+	case <-c.engine.Done():
+		var zero T
+		return zero, fmt.Errorf("engine stopped")
+	}
+	select {
+	case r := <-reply:
+		return r, nil
+	case <-c.engine.Done():
+		var zero T
+		return zero, fmt.Errorf("engine stopped")
+	}
+}
+
 // dispatch decodes params for a method and sends the appropriate event to the engine.
 // Returns the result to encode in the response, or an error.
 // Decode errors are wrapped as *fatalError to signal stream corruption.
@@ -26,12 +53,14 @@ func (c *Client) dispatch(method string, dec *msgpack.Decoder) (any, error) {
 		}
 
 		reply := make(chan engine.HelloReply, 1)
-		c.engine.Events <- engine.HelloRequest{
+		r, err := sendAndWait(c, engine.HelloRequest{
 			ClientID: c.ID,
 			Params:   params,
 			Reply:    reply,
+		}, reply)
+		if err != nil {
+			return nil, err
 		}
-		r := <-reply
 		if r.Err != nil {
 			return nil, r.Err
 		}
@@ -43,12 +72,14 @@ func (c *Client) dispatch(method string, dec *msgpack.Decoder) (any, error) {
 			return nil, &fatalError{fmt.Errorf("decoding upload params: %w", err)}
 		}
 		reply := make(chan engine.UploadReply, 1)
-		c.engine.Events <- engine.UploadRequest{
+		r, err := sendAndWait(c, engine.UploadRequest{
 			ClientID: c.ID,
 			Params:   params,
 			Reply:    reply,
+		}, reply)
+		if err != nil {
+			return nil, err
 		}
-		r := <-reply
 		if r.Err != nil {
 			return nil, r.Err
 		}
@@ -60,12 +91,14 @@ func (c *Client) dispatch(method string, dec *msgpack.Decoder) (any, error) {
 			return nil, &fatalError{fmt.Errorf("decoding place params: %w", err)}
 		}
 		reply := make(chan engine.PlaceReply, 1)
-		c.engine.Events <- engine.PlaceRequest{
+		r, err := sendAndWait(c, engine.PlaceRequest{
 			ClientID: c.ID,
 			Params:   params,
 			Reply:    reply,
+		}, reply)
+		if err != nil {
+			return nil, err
 		}
-		r := <-reply
 		if r.Err != nil {
 			return nil, r.Err
 		}
@@ -76,76 +109,72 @@ func (c *Client) dispatch(method string, dec *msgpack.Decoder) (any, error) {
 		if err := dec.Decode(&params); err != nil {
 			return nil, &fatalError{fmt.Errorf("decoding unplace params: %w", err)}
 		}
-		c.engine.Events <- engine.UnplaceRequest{
+		return nil, c.sendEvent(engine.UnplaceRequest{
 			ClientID: c.ID,
 			Params:   params,
-		}
-		return nil, nil
+		})
 
 	case protocol.MethodUnplaceAll:
 		// params is nil/empty array — skip it
 		if err := skipValue(dec); err != nil {
 			return nil, &fatalError{fmt.Errorf("decoding unplace_all params: %w", err)}
 		}
-		c.engine.Events <- engine.UnplaceAllRequest{
+		return nil, c.sendEvent(engine.UnplaceAllRequest{
 			ClientID: c.ID,
-		}
-		return nil, nil
+		})
 
 	case protocol.MethodFree:
 		var params protocol.FreeParams
 		if err := dec.Decode(&params); err != nil {
 			return nil, &fatalError{fmt.Errorf("decoding free params: %w", err)}
 		}
-		c.engine.Events <- engine.FreeRequest{
+		return nil, c.sendEvent(engine.FreeRequest{
 			ClientID: c.ID,
 			Handle:   params.Handle,
-		}
-		return nil, nil
+		})
 
 	case protocol.MethodRegisterWin:
 		var params protocol.RegisterWinParams
 		if err := dec.Decode(&params); err != nil {
 			return nil, &fatalError{fmt.Errorf("decoding register_win params: %w", err)}
 		}
-		c.engine.Events <- engine.RegisterWin{
+		return nil, c.sendEvent(engine.RegisterWin{
 			ClientID: c.ID,
 			Params:   params,
-		}
-		return nil, nil
+		})
 
 	case protocol.MethodUpdateScroll:
 		var params protocol.UpdateScrollParams
 		if err := dec.Decode(&params); err != nil {
 			return nil, &fatalError{fmt.Errorf("decoding update_scroll params: %w", err)}
 		}
-		c.engine.Events <- engine.ScrollUpdate{
+		return nil, c.sendEvent(engine.ScrollUpdate{
 			ClientID: c.ID,
 			Params:   params,
-		}
-		return nil, nil
+		})
 
 	case protocol.MethodUnregisterWin:
 		var params protocol.UnregisterWinParams
 		if err := dec.Decode(&params); err != nil {
 			return nil, &fatalError{fmt.Errorf("decoding unregister_win params: %w", err)}
 		}
-		c.engine.Events <- engine.UnregisterWin{
+		return nil, c.sendEvent(engine.UnregisterWin{
 			ClientID: c.ID,
 			WinID:    params.WinID,
-		}
-		return nil, nil
+		})
 
 	case protocol.MethodList:
 		if err := skipValue(dec); err != nil {
 			return nil, &fatalError{fmt.Errorf("decoding list params: %w", err)}
 		}
 		reply := make(chan engine.ListReply, 1)
-		c.engine.Events <- engine.ListRequest{
+		r, err := sendAndWait(c, engine.ListRequest{
 			ClientID: c.ID,
 			Reply:    reply,
+		}, reply)
+		if err != nil {
+			return nil, err
 		}
-		r := <-reply
 		return r.Result, nil
 
 	case protocol.MethodStatus:
@@ -153,18 +182,19 @@ func (c *Client) dispatch(method string, dec *msgpack.Decoder) (any, error) {
 			return nil, &fatalError{fmt.Errorf("decoding status params: %w", err)}
 		}
 		reply := make(chan engine.StatusReply, 1)
-		c.engine.Events <- engine.StatusRequest{
+		r, err := sendAndWait(c, engine.StatusRequest{
 			Reply: reply,
+		}, reply)
+		if err != nil {
+			return nil, err
 		}
-		r := <-reply
 		return r.Result, nil
 
 	case protocol.MethodStop:
 		if err := skipValue(dec); err != nil {
 			return nil, &fatalError{fmt.Errorf("decoding stop params: %w", err)}
 		}
-		c.engine.Events <- engine.StopRequest{}
-		return nil, nil
+		return nil, c.sendEvent(engine.StopRequest{})
 
 	default:
 		// Skip the params we can't decode

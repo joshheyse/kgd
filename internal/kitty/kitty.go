@@ -30,9 +30,16 @@ func (c TransmitCommand) SerializeChunks(data []byte) []string {
 	b64 := base64.StdEncoding.EncodeToString(data)
 	format := formatCode(c.Format)
 
+	// q=2 suppresses terminal responses to avoid noise on the read side
+	sizeKeys := ""
+	if format != 100 {
+		// s= and v= only needed for raw pixel formats, not PNG
+		sizeKeys = fmt.Sprintf(",s=%d,v=%d", c.Width, c.Height)
+	}
+
 	if len(b64) <= chunkSize {
-		return []string{fmt.Sprintf("\x1b_Ga=t,f=%d,i=%d,s=%d,v=%d;%s\x1b\\",
-			format, c.ImageID, c.Width, c.Height, b64)}
+		return []string{fmt.Sprintf("\x1b_Ga=t,f=%d,i=%d%s,q=2;%s\x1b\\",
+			format, c.ImageID, sizeKeys, b64)}
 	}
 
 	chunks := splitChunks(b64, chunkSize)
@@ -43,10 +50,10 @@ func (c TransmitCommand) SerializeChunks(data []byte) []string {
 			more = 0
 		}
 		if i == 0 {
-			result[i] = fmt.Sprintf("\x1b_Ga=t,f=%d,i=%d,s=%d,v=%d,m=%d;%s\x1b\\",
-				format, c.ImageID, c.Width, c.Height, more, chunk)
+			result[i] = fmt.Sprintf("\x1b_Ga=t,f=%d,i=%d%s,m=%d,q=2;%s\x1b\\",
+				format, c.ImageID, sizeKeys, more, chunk)
 		} else {
-			result[i] = fmt.Sprintf("\x1b_Gm=%d;%s\x1b\\", more, chunk)
+			result[i] = fmt.Sprintf("\x1b_Gm=%d,q=2;%s\x1b\\", more, chunk)
 		}
 	}
 	return result
@@ -97,6 +104,8 @@ func (c PlaceCommand) Serialize() string {
 		parts = append(parts, fmt.Sprintf("z=%d", c.ZIndex))
 	}
 
+	// C=1 suppresses cursor movement, q=2 suppresses terminal responses
+	parts = append(parts, "C=1", "q=2")
 	return fmt.Sprintf("\x1b[%d;%dH\x1b_G%s;\x1b\\", c.Row+1, c.Col+1, strings.Join(parts, ","))
 }
 
@@ -115,9 +124,9 @@ func (c DeleteCommand) Serialize() string {
 	}
 
 	if c.PlacementID != 0 {
-		return fmt.Sprintf("\x1b_Ga=d,%s,i=%d,p=%d;\x1b\\", deleteType, c.ImageID, c.PlacementID)
+		return fmt.Sprintf("\x1b_Ga=d,%s,i=%d,p=%d,q=2;\x1b\\", deleteType, c.ImageID, c.PlacementID)
 	}
-	return fmt.Sprintf("\x1b_Ga=d,%s,i=%d;\x1b\\", deleteType, c.ImageID)
+	return fmt.Sprintf("\x1b_Ga=d,%s,i=%d,q=2;\x1b\\", deleteType, c.ImageID)
 }
 
 // WrapTmux wraps a kitty APC escape sequence in a tmux DCS passthrough,

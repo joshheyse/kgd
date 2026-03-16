@@ -30,6 +30,7 @@ type Server struct {
 	clients    map[string]*Client
 	sessions   map[string]*session // sessionID → session
 	mu         sync.Mutex
+	wg         sync.WaitGroup // tracks client goroutines and reaper
 }
 
 // NewServer creates a new RPC server.
@@ -57,7 +58,11 @@ func (s *Server) Run(ctx context.Context) error {
 	slog.Info("rpc server listening", "socket", s.socketPath)
 
 	// Start session reaper
-	go s.reapSessions(ctx)
+	s.wg.Add(1)
+	go func() {
+		defer s.wg.Done()
+		s.reapSessions(ctx)
+	}()
 
 	// Close listener when context is done
 	go func() {
@@ -70,6 +75,7 @@ func (s *Server) Run(ctx context.Context) error {
 		if err != nil {
 			select {
 			case <-ctx.Done():
+				s.wg.Wait()
 				return nil
 			default:
 				slog.Error("accept error", "error", err)
@@ -79,7 +85,11 @@ func (s *Server) Run(ctx context.Context) error {
 
 		client := NewClient(conn, s.engine, s)
 		s.addClient(client)
-		go s.handleClient(ctx, client)
+		s.wg.Add(1)
+		go func() {
+			defer s.wg.Done()
+			s.handleClient(ctx, client)
+		}()
 	}
 }
 
@@ -173,10 +183,15 @@ func (s *Server) reapSessions(ctx context.Context) {
 }
 
 // updateClientID re-keys a client in the map when its ID changes (e.g., stateless session takeover).
+// If another client already has the new ID (stale connection), it is evicted.
 func (s *Server) updateClientID(c *Client, newID string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	delete(s.clients, c.ID)
+	if old, exists := s.clients[newID]; exists && old != c {
+		slog.Warn("evicting stale client on session takeover", "client", newID)
+		old.conn.Close()
+	}
 	c.ID = newID
 	s.clients[newID] = c
 }
@@ -184,13 +199,7 @@ func (s *Server) updateClientID(c *Client, newID string) {
 // NotifyClient sends a notification to a specific client by ID.
 func (s *Server) NotifyClient(clientID, method string, params any) error {
 	s.mu.Lock()
-	var target *Client
-	for _, c := range s.clients {
-		if c.ID == clientID {
-			target = c
-			break
-		}
-	}
+	target := s.clients[clientID]
 	s.mu.Unlock()
 
 	if target == nil {
