@@ -191,6 +191,34 @@ func (c *Client) Free(handle uint32) error {
 	return err
 }
 
+// RegisterWin registers a neovim window's geometry with the daemon.
+func (c *Client) RegisterWin(winID int, paneID string, top, left, width, height, scrollTop int) error {
+	return c.notify(protocol.MethodRegisterWin, protocol.RegisterWinParams{
+		WinID:     winID,
+		PaneID:    paneID,
+		Top:       top,
+		Left:      left,
+		Width:     width,
+		Height:    height,
+		ScrollTop: scrollTop,
+	})
+}
+
+// UpdateScroll updates the scroll position for a registered neovim window.
+func (c *Client) UpdateScroll(winID int, scrollTop int) error {
+	return c.notify(protocol.MethodUpdateScroll, protocol.UpdateScrollParams{
+		WinID:     winID,
+		ScrollTop: scrollTop,
+	})
+}
+
+// UnregisterWin unregisters a neovim window.
+func (c *Client) UnregisterWin(winID int) error {
+	return c.notify(protocol.MethodUnregisterWin, protocol.UnregisterWinParams{
+		WinID: winID,
+	})
+}
+
 // List returns all active placements.
 func (c *Client) List(ctx context.Context) (protocol.ListResult, error) {
 	result, err := c.call(ctx, protocol.MethodList, nil)

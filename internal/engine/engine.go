@@ -312,6 +312,7 @@ func (e *Engine) handleScrollUpdate(ev ScrollUpdate) {
 func (e *Engine) handleRegisterWin(ev RegisterWin) {
 	e.wins[ev.Params.WinID] = WinGeometry{
 		WinID:     ev.Params.WinID,
+		ClientID:  ev.ClientID,
 		PaneID:    ev.Params.PaneID,
 		Top:       ev.Params.Top,
 		Left:      ev.Params.Left,
@@ -319,6 +320,7 @@ func (e *Engine) handleRegisterWin(ev RegisterWin) {
 		Height:    ev.Params.Height,
 		ScrollTop: ev.Params.ScrollTop,
 	}
+	e.recomputePlacements()
 	slog.Debug("window registered", "win_id", ev.Params.WinID)
 }
 
@@ -354,6 +356,12 @@ func (e *Engine) handleClientDisconnect(ev ClientDisconnect) {
 		}
 	}
 	delete(e.clientImages, ev.ClientID)
+	// Clean up nvim window registrations for this client
+	for winID, win := range e.wins {
+		if win.ClientID == ev.ClientID {
+			delete(e.wins, winID)
+		}
+	}
 	slog.Info("client cleanup complete", "client", ev.ClientID)
 }
 

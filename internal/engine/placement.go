@@ -55,11 +55,11 @@ func (p *Placement) ScreenPos(panes map[string]PaneGeometry, wins map[int]WinGeo
 		if !ok {
 			return 0, 0, false
 		}
-		screenRow := win.Top + (p.Anchor.BufLine - win.ScrollTop)
-		if screenRow < 0 || screenRow >= win.Height {
+		relRow := p.Anchor.BufLine - win.ScrollTop
+		if relRow < 0 || relRow >= win.Height {
 			return 0, 0, false
 		}
-		row := screenRow
+		row := win.Top + relRow
 		col := win.Left + p.Anchor.Col
 		// If inside a tmux pane, add pane offset and check visibility
 		if win.PaneID != "" {
@@ -108,6 +108,7 @@ type PaneGeometry struct {
 // WinGeometry describes a neovim window's position within a pane.
 type WinGeometry struct {
 	WinID     int
+	ClientID  string
 	PaneID    string
 	Top       int
 	Left      int
