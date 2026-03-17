@@ -39,6 +39,7 @@
           gotools
           just
           git
+          python3
         ];
       };
     });

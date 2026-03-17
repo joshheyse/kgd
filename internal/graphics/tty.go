@@ -1,7 +1,7 @@
 package graphics
 
 import (
-	"strings"
+	"log/slog"
 
 	"github.com/joshheyse/kgd/internal/kitty"
 	"github.com/joshheyse/kgd/internal/tty"
@@ -12,7 +12,7 @@ type TTYGraphics struct {
 	writer   *tty.Writer
 	inTmux   bool
 	batching bool
-	batch    strings.Builder
+	batch    []byte
 }
 
 // NewTTYGraphics creates a new TTYGraphics backed by the given TTY writer.
@@ -23,28 +23,34 @@ func NewTTYGraphics(writer *tty.Writer) *TTYGraphics {
 	}
 }
 
-// Transmit always writes immediately (not batched) due to large payload size.
+// Transmit sends image data to the terminal.
+// Each chunk is sent as a separate write to avoid interleaving with other
+// processes writing to the same PTY (shell prompt, tmux client output).
 func (g *TTYGraphics) Transmit(id uint32, data []byte, format string, width, height int) error {
+	slog.Info("gfx transmit", "id", id, "format", format, "dataLen", len(data), "tmux", g.inTmux)
 	cmd := kitty.TransmitCommand{
 		ImageID: id,
 		Format:  format,
 		Width:   width,
 		Height:  height,
 	}
-	if g.inTmux {
-		// Wrap each chunk individually — tmux DCS passthrough has size limits
-		chunks := cmd.SerializeChunks(data)
-		for i, chunk := range chunks {
-			chunks[i] = kitty.WrapTmux(chunk)
+
+	chunks := cmd.SerializeChunks(data)
+	slog.Info("gfx transmit chunks", "count", len(chunks))
+
+	for _, chunk := range chunks {
+		if g.inTmux {
+			chunk = kitty.WrapTmux(chunk)
 		}
-		g.writer.Writes <- []byte(strings.Join(chunks, ""))
-	} else {
-		g.writer.Writes <- []byte(cmd.Serialize(data))
+		// Send each chunk individually so each write() is small and atomic.
+		// This prevents interleaving with shell output on the same PTY.
+		g.writer.Writes <- []byte(chunk)
 	}
 	return nil
 }
 
 func (g *TTYGraphics) Place(imageID, placementID uint32, row, col int, p PlacementInfo) error {
+	slog.Info("gfx place", "imageID", imageID, "placementID", placementID, "row", row, "col", col, "tmux", g.inTmux)
 	cmd := kitty.PlaceCommand{
 		ImageID:     imageID,
 		PlacementID: placementID,
@@ -72,14 +78,14 @@ func (g *TTYGraphics) Delete(imageID, placementID uint32, free bool) error {
 	return nil
 }
 
-// send writes a kitty escape sequence, wrapping for tmux if needed
+// send writes a kitty escape sequence, wrapping for tmux DCS passthrough if needed
 // and accumulating into the batch buffer if batching.
 func (g *TTYGraphics) send(seq string) {
 	if g.inTmux {
 		seq = kitty.WrapTmux(seq)
 	}
 	if g.batching {
-		g.batch.WriteString(seq)
+		g.batch = append(g.batch, seq...)
 		return
 	}
 	g.writer.Writes <- []byte(seq)
@@ -87,13 +93,13 @@ func (g *TTYGraphics) send(seq string) {
 
 func (g *TTYGraphics) BeginBatch() {
 	g.batching = true
-	g.batch.Reset()
+	g.batch = g.batch[:0]
 }
 
 func (g *TTYGraphics) FlushBatch() {
-	if g.batch.Len() > 0 {
-		g.writer.Writes <- []byte(g.batch.String())
+	if len(g.batch) > 0 {
+		g.writer.Writes <- append([]byte(nil), g.batch...)
 	}
-	g.batch.Reset()
+	g.batch = g.batch[:0]
 	g.batching = false
 }

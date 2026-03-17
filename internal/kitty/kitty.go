@@ -129,6 +129,11 @@ func (c DeleteCommand) Serialize() string {
 	return fmt.Sprintf("\x1b_Ga=d,%s,i=%d,q=2;\x1b\\", deleteType, c.ImageID)
 }
 
+// SerializeDeleteAll encodes a command to delete all images and free their data.
+func (c DeleteCommand) SerializeDeleteAll() string {
+	return "\x1b_Ga=d,d=A,q=2;\x1b\\"
+}
+
 // WrapTmux wraps a kitty APC escape sequence in a tmux DCS passthrough,
 // doubling ESC bytes as required by tmux.
 func WrapTmux(escape string) string {

@@ -29,6 +29,10 @@ clean:
 # Build, vet, and test
 check: build vet test
 
+# Test image rendering end-to-end (builds, starts daemon, uploads, places)
+test-render: build
+    ./scripts/test-render.sh
+
 # Format all Go files
 fmt:
     gofmt -w .

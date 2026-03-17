@@ -16,6 +16,10 @@ result-*
 *.swo
 *~
 
+# Test artifacts
+*.log
+log.txt
+
 # OS
 .DS_Store
 Thumbs.db

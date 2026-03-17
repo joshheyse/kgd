@@ -13,16 +13,17 @@ import (
 )
 
 var (
-	logLevel string
-	logFile  string
-	socket   string
+	logLevel  string
+	logFile   string
+	logStderr bool
+	socket    string
 )
 
 var serveCmd = &cobra.Command{
 	Use:   "serve",
 	Short: "Start the kgd daemon",
 	RunE: func(cmd *cobra.Command, args []string) error {
-		f, err := logging.Setup(logLevel, logFile)
+		f, err := logging.Setup(logLevel, logFile, logStderr)
 		if err != nil {
 			return fmt.Errorf("setting up logging: %w", err)
 		}
@@ -51,5 +52,6 @@ var serveCmd = &cobra.Command{
 func init() {
 	serveCmd.Flags().StringVar(&logLevel, "log-level", "info", "Log level (debug, info, warn, error)")
 	serveCmd.Flags().StringVar(&logFile, "log-file", "", "Log file path (default: $XDG_STATE_HOME/kgd/kgd.log)")
+	serveCmd.Flags().BoolVar(&logStderr, "log-stderr", false, "Also log to stderr")
 	serveCmd.Flags().StringVar(&socket, "socket", "", "Socket path (default: $XDG_RUNTIME_DIR/kgd-$KITTY_WINDOW_ID.sock)")
 }

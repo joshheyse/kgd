@@ -9,10 +9,11 @@ import (
 	"strings"
 )
 
-// Setup configures the default slog logger to write to both stderr and logFile.
+// Setup configures the default slog logger to write to logFile.
+// If stderr is true, logs are also written to stderr.
 // If logFile is empty, a default path under $XDG_STATE_HOME/kgd/ is used.
 // Returns the log file for deferred close.
-func Setup(level string, logFile string) (*os.File, error) {
+func Setup(level string, logFile string, stderr bool) (*os.File, error) {
 	if logFile == "" {
 		logFile = defaultLogPath()
 	}
@@ -28,8 +29,11 @@ func Setup(level string, logFile string) (*os.File, error) {
 		return nil, fmt.Errorf("opening log file %s: %w", logFile, err)
 	}
 
-	w := io.MultiWriter(os.Stderr, f)
-	handler := slog.NewTextHandler(w, &slog.HandlerOptions{Level: lvl})
+	var out io.Writer = f
+	if stderr {
+		out = io.MultiWriter(os.Stderr, f)
+	}
+	handler := slog.NewTextHandler(out, &slog.HandlerOptions{Level: lvl})
 	slog.SetDefault(slog.New(handler))
 
 	return f, nil

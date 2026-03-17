@@ -423,16 +423,29 @@ func (e *Engine) handleStop() {
 	}
 }
 
-// cleanupRenderedPlacements deletes all rendered placements from the terminal
-// so images don't persist on screen after shutdown.
+// cleanupRenderedPlacements deletes all placements and frees all uploaded
+// images from the terminal so nothing persists after shutdown.
 func (e *Engine) cleanupRenderedPlacements() {
 	if e.gfx == nil {
 		return
 	}
+	// Delete all rendered placements
 	for _, p := range e.placements {
 		if p.Rendered {
 			if err := e.gfx.Delete(p.KittyImgID, p.ID, false); err != nil {
 				slog.Error("failed to delete placement on shutdown", "error", err)
+			}
+		}
+	}
+	// Free all uploaded images from kitty's GPU memory
+	freed := make(map[uint32]bool)
+	for _, imgs := range e.clientImages {
+		for _, kittyID := range imgs {
+			if !freed[kittyID] {
+				if err := e.gfx.Delete(kittyID, 0, true); err != nil {
+					slog.Error("failed to free image on shutdown", "error", err)
+				}
+				freed[kittyID] = true
 			}
 		}
 	}

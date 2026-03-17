@@ -63,7 +63,7 @@ func New(cfg Config) (*Daemon, error) {
 }
 
 // Run starts all daemon goroutines and blocks until ctx is cancelled.
-// Shutdown order: RPC server stops first, then engine drains, then TTY writer closes.
+// Shutdown order: RPC server stops → engine cleans up → TTY writer drains and stops.
 func (d *Daemon) Run(ctx context.Context) error {
 	slog.Info("kgd daemon started", "socket", d.cfg.SocketPath, "pid", os.Getpid())
 
@@ -72,39 +72,46 @@ func (d *Daemon) Run(ctx context.Context) error {
 	defer cancel()
 	d.engine.SetStopFunc(cancel)
 
-	var wg sync.WaitGroup
+	// TTY writer gets its own context — it must stay alive until the engine
+	// finishes cleanup (sending delete commands to the Writes channel).
+	writerCtx, writerCancel := context.WithCancel(context.Background())
 
-	// Start the TTY writer goroutine
-	wg.Add(1)
+	var writerWg sync.WaitGroup
+	writerWg.Add(1)
 	go func() {
-		defer wg.Done()
-		d.writer.Run(ctx)
+		defer writerWg.Done()
+		d.writer.Run(writerCtx)
 	}()
 
 	// Start the placement engine goroutine
-	wg.Add(1)
+	var engineWg sync.WaitGroup
+	engineWg.Add(1)
 	go func() {
-		defer wg.Done()
+		defer engineWg.Done()
 		d.engine.Run(ctx)
 	}()
 
 	// Start tmux watcher if in tmux
 	if d.writer.InTmux() {
 		tmuxW := topology.NewTmuxWatcher(d.engine)
-		wg.Add(1)
+		engineWg.Add(1)
 		go func() {
-			defer wg.Done()
+			defer engineWg.Done()
 			tmuxW.Run(ctx)
 		}()
 	}
 
-	// Start the RPC server (blocks until ctx is cancelled)
+	// RPC server blocks until ctx is cancelled
 	if err := d.server.Run(ctx); err != nil {
 		return fmt.Errorf("rpc server: %w", err)
 	}
 
-	// Wait for engine and writer to finish
-	wg.Wait()
+	// Wait for engine to finish (includes cleanup: deleting placements, freeing images)
+	engineWg.Wait()
+
+	// Now stop the TTY writer — it has drained all cleanup commands
+	writerCancel()
+	writerWg.Wait()
 
 	slog.Info("kgd daemon stopped")
 	return nil
