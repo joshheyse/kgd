@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 
 	"github.com/joshheyse/kgd/internal/protocol"
@@ -31,7 +30,7 @@ var placeCmd = &cobra.Command{
 		client, err := kgdclient.Connect(context.Background(), kgdclient.Options{
 			ClientType: "cli",
 			Label:      "kgd place",
-			SessionID:  os.Getenv("KGD_SESSION"),
+			SessionID:  cliSessionID(),
 		})
 		if err != nil {
 			return fmt.Errorf("connecting to daemon: %w", err)

@@ -3,7 +3,6 @@ package cli
 import (
 	"context"
 	"fmt"
-	"os"
 	"strconv"
 
 	"github.com/joshheyse/kgd/pkg/kgdclient"
@@ -23,7 +22,7 @@ var unplaceCmd = &cobra.Command{
 		client, err := kgdclient.Connect(context.Background(), kgdclient.Options{
 			ClientType: "cli",
 			Label:      "kgd unplace",
-			SessionID:  os.Getenv("KGD_SESSION"),
+			SessionID:  cliSessionID(),
 		})
 		if err != nil {
 			return fmt.Errorf("connecting to daemon: %w", err)

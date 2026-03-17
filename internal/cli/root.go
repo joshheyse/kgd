@@ -1,8 +1,22 @@
 package cli
 
 import (
+	"fmt"
+	"os"
+
+	"github.com/joshheyse/kgd/pkg/kgdsocket"
 	"github.com/spf13/cobra"
 )
+
+// cliSessionID returns the session ID for CLI commands.
+// Uses $KGD_SESSION if set, otherwise auto-generates from the terminal session key
+// so that all CLI invocations in the same terminal share state.
+func cliSessionID() string {
+	if id := os.Getenv("KGD_SESSION"); id != "" {
+		return id
+	}
+	return fmt.Sprintf("cli-%s", kgdsocket.SessionKey())
+}
 
 var rootCmd = &cobra.Command{
 	Use:   "kgd",

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/joshheyse/kgd/pkg/kgdclient"
+
 	"github.com/spf13/cobra"
 )
 
@@ -22,7 +23,7 @@ var uploadCmd = &cobra.Command{
 		client, err := kgdclient.Connect(context.Background(), kgdclient.Options{
 			ClientType: "cli",
 			Label:      "kgd upload",
-			SessionID:  os.Getenv("KGD_SESSION"),
+			SessionID:  cliSessionID(),
 		})
 		if err != nil {
 			return fmt.Errorf("connecting to daemon: %w", err)
