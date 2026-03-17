@@ -21,11 +21,11 @@ type fatalError struct{ error }
 
 func (e *fatalError) Unwrap() error { return e.error }
 
-// msgpack-rpc message types
+// Aliases for protocol-level message type constants.
 const (
-	msgRequest      = 0
-	msgResponse     = 1
-	msgNotification = 2
+	msgRequest      = protocol.MsgRequest
+	msgResponse     = protocol.MsgResponse
+	msgNotification = protocol.MsgNotification
 )
 
 // Client represents a connected RPC client.

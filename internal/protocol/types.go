@@ -1,5 +1,12 @@
 package protocol
 
+// msgpack-rpc message types.
+const (
+	MsgRequest      = 0
+	MsgResponse     = 1
+	MsgNotification = 2
+)
+
 // Method names for the kgd RPC protocol.
 const (
 	MethodHello         = "hello"

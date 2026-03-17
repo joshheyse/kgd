@@ -45,9 +45,16 @@ local function get_socket_path(opts)
   if env and env ~= "" then
     return env
   end
-  -- Compute default
+  -- Compute default — must match daemon's sessionKey()
   local runtime = vim.env.XDG_RUNTIME_DIR or vim.fn.tempname():match("(.*/)")
-  local key = vim.env.KITTY_WINDOW_ID or "default"
+  local key
+  if vim.env.KITTY_WINDOW_ID and vim.env.KITTY_WINDOW_ID ~= "" then
+    key = "kitty-" .. vim.env.KITTY_WINDOW_ID
+  elseif vim.env.WEZTERM_PANE and vim.env.WEZTERM_PANE ~= "" then
+    key = "wezterm-" .. vim.env.WEZTERM_PANE
+  else
+    key = "default"
+  end
   return runtime .. "/kgd-" .. key .. ".sock"
 end
 

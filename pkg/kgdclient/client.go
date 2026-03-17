@@ -8,22 +8,19 @@ import (
 	"log/slog"
 	"net"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"sync"
 	"sync/atomic"
-	"syscall"
-	"time"
 
 	"github.com/joshheyse/kgd/internal/protocol"
+	"github.com/joshheyse/kgd/pkg/kgdsocket"
 	"github.com/vmihailenco/msgpack/v5"
 )
 
-// msgpack-rpc message types
+// Aliases for protocol-level message type constants.
 const (
-	msgRequest      = 0
-	msgResponse     = 1
-	msgNotification = 2
+	msgRequest      = protocol.MsgRequest
+	msgResponse     = protocol.MsgResponse
+	msgNotification = protocol.MsgNotification
 )
 
 // Options configures the client connection.
@@ -84,11 +81,11 @@ func Connect(ctx context.Context, opts Options) (*Client, error) {
 		opts.SocketPath = os.Getenv("KGD_SOCKET")
 	}
 	if opts.SocketPath == "" {
-		opts.SocketPath = defaultSocketPath()
+		opts.SocketPath = kgdsocket.DefaultPath()
 	}
 
 	if opts.AutoLaunch {
-		if err := ensureDaemon(opts.SocketPath); err != nil {
+		if err := kgdsocket.EnsureDaemon(opts.SocketPath); err != nil {
 			return nil, fmt.Errorf("ensuring daemon: %w", err)
 		}
 	}
@@ -457,56 +454,6 @@ func (c *Client) handleNotification() {
 			c.OnThemeChanged(fg, bg)
 		}
 	}
-}
-
-// ensureDaemon starts the kgd daemon if it's not already running.
-func ensureDaemon(socketPath string) error {
-	// Check if daemon is already running
-	conn, err := net.Dial("unix", socketPath)
-	if err == nil {
-		conn.Close()
-		return nil
-	}
-
-	// Find kgd binary
-	kgdPath, err := exec.LookPath("kgd")
-	if err != nil {
-		return fmt.Errorf("kgd not found in PATH: %w", err)
-	}
-
-	// Fork+exec kgd serve in its own session
-	cmd := exec.Command(kgdPath, "serve", "--socket", socketPath)
-	cmd.Stdout = nil
-	cmd.Stderr = nil
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("starting kgd: %w", err)
-	}
-	// Reap the child asynchronously to avoid zombie
-	go cmd.Wait()
-
-	// Wait for socket to appear
-	for range 50 {
-		time.Sleep(100 * time.Millisecond)
-		if conn, err := net.Dial("unix", socketPath); err == nil {
-			conn.Close()
-			return nil
-		}
-	}
-
-	return fmt.Errorf("timed out waiting for kgd to start")
-}
-
-func defaultSocketPath() string {
-	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
-	if runtimeDir == "" {
-		runtimeDir = os.TempDir()
-	}
-	kittyWindowID := os.Getenv("KITTY_WINDOW_ID")
-	if kittyWindowID == "" {
-		kittyWindowID = "default"
-	}
-	return filepath.Join(runtimeDir, fmt.Sprintf("kgd-%s.sock", kittyWindowID))
 }
 
 // Helpers for decoding generic map values from msgpack.

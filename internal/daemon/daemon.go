@@ -6,8 +6,6 @@ import (
 	"log/slog"
 	"net"
 	"os"
-	"path/filepath"
-	"strings"
 	"sync"
 
 	"github.com/joshheyse/kgd/internal/allocator"
@@ -17,6 +15,7 @@ import (
 	"github.com/joshheyse/kgd/internal/topology"
 	"github.com/joshheyse/kgd/internal/tty"
 	"github.com/joshheyse/kgd/internal/upload"
+	"github.com/joshheyse/kgd/pkg/kgdsocket"
 )
 
 // Config holds daemon configuration.
@@ -35,7 +34,7 @@ type Daemon struct {
 // New creates a new Daemon with the given config.
 func New(cfg Config) (*Daemon, error) {
 	if cfg.SocketPath == "" {
-		cfg.SocketPath = defaultSocketPath()
+		cfg.SocketPath = kgdsocket.DefaultPath()
 	}
 
 	// Check for stale socket / already running daemon
@@ -130,43 +129,6 @@ func checkSocket(path string) error {
 	return os.Remove(path)
 }
 
-// sessionKey computes a unique key for this terminal session.
-// Priority: $KITTY_WINDOW_ID → $WEZTERM_PANE → TTY device path
-func sessionKey() string {
-	if id := os.Getenv("KITTY_WINDOW_ID"); id != "" {
-		return "kitty-" + id
-	}
-	if id := os.Getenv("WEZTERM_PANE"); id != "" {
-		return "wezterm-" + id
-	}
-	// Fall back to TTY device path
-	ttyPath := ttyDevicePath()
-	if ttyPath != "" {
-		// Sanitize for use in filename
-		safe := strings.ReplaceAll(ttyPath, "/", "-")
-		safe = strings.TrimPrefix(safe, "-dev-")
-		return "tty-" + safe
-	}
-	return "default"
-}
-
-// ttyDevicePath returns the path to the controlling terminal, or empty string.
-func ttyDevicePath() string {
-	// Read /proc/self/fd/0 symlink (Linux) or use os.Stdin stat (macOS)
-	if target, err := os.Readlink("/proc/self/fd/0"); err == nil {
-		if strings.HasPrefix(target, "/dev/") {
-			return target
-		}
-	}
-	// Fallback: check if stdin is a terminal
-	if fi, err := os.Stdin.Stat(); err == nil {
-		if fi.Mode()&os.ModeCharDevice != 0 {
-			return fi.Name()
-		}
-	}
-	return ""
-}
-
 // SocketPath returns the socket path for this daemon.
 func (d *Daemon) SocketPath() string {
 	return d.cfg.SocketPath
@@ -174,14 +136,5 @@ func (d *Daemon) SocketPath() string {
 
 // DefaultSocketPath returns the default socket path for the current session.
 func DefaultSocketPath() string {
-	return defaultSocketPath()
-}
-
-func defaultSocketPath() string {
-	runtimeDir := os.Getenv("XDG_RUNTIME_DIR")
-	if runtimeDir == "" {
-		runtimeDir = os.TempDir()
-	}
-
-	return filepath.Join(runtimeDir, fmt.Sprintf("kgd-%s.sock", sessionKey()))
+	return kgdsocket.DefaultPath()
 }

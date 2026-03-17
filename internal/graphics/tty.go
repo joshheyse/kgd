@@ -58,15 +58,7 @@ func (g *TTYGraphics) Place(imageID, placementID uint32, row, col int, p Placeme
 		SrcH:        p.GetSrcH(),
 		ZIndex:      p.GetZIndex(),
 	}
-	seq := cmd.Serialize()
-	if g.inTmux {
-		seq = kitty.WrapTmux(seq)
-	}
-	if g.batching {
-		g.batch.WriteString(seq)
-		return nil
-	}
-	g.writer.Writes <- []byte(seq)
+	g.send(cmd.Serialize())
 	return nil
 }
 
@@ -76,16 +68,21 @@ func (g *TTYGraphics) Delete(imageID, placementID uint32, free bool) error {
 		PlacementID: placementID,
 		Free:        free,
 	}
-	seq := cmd.Serialize()
+	g.send(cmd.Serialize())
+	return nil
+}
+
+// send writes a kitty escape sequence, wrapping for tmux if needed
+// and accumulating into the batch buffer if batching.
+func (g *TTYGraphics) send(seq string) {
 	if g.inTmux {
 		seq = kitty.WrapTmux(seq)
 	}
 	if g.batching {
 		g.batch.WriteString(seq)
-		return nil
+		return
 	}
 	g.writer.Writes <- []byte(seq)
-	return nil
 }
 
 func (g *TTYGraphics) BeginBatch() {
