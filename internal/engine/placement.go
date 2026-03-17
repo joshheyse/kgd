@@ -30,10 +30,18 @@ type Placement struct {
 
 // ScreenPos computes the absolute terminal position for this placement
 // given pane and window geometry. Returns (row, col, visible).
-func (p *Placement) ScreenPos(panes map[string]PaneGeometry, wins map[int]WinGeometry) (int, int, bool) {
+// termRows and termCols are used for absolute anchor bounds checking (0 means unknown/skip).
+func (p *Placement) ScreenPos(panes map[string]PaneGeometry, wins map[int]WinGeometry, termRows, termCols int) (int, int, bool) {
 	switch p.Anchor.Type {
 	case "absolute":
-		return p.Anchor.Row, p.Anchor.Col, true
+		visible := p.Anchor.Row >= 0 && p.Anchor.Col >= 0
+		if termRows > 0 {
+			visible = visible && p.Anchor.Row < termRows
+		}
+		if termCols > 0 {
+			visible = visible && p.Anchor.Col < termCols
+		}
+		return p.Anchor.Row, p.Anchor.Col, visible
 
 	case "pane":
 		pane, ok := panes[p.Anchor.PaneID]

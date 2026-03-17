@@ -152,14 +152,32 @@ func (c *Client) Upload(ctx context.Context, data []byte, format string, width, 
 	return 0, fmt.Errorf("unexpected upload result: %T", result)
 }
 
+// PlaceOpts holds optional parameters for Place.
+type PlaceOpts struct {
+	SrcX   int   // source region X offset (pixels)
+	SrcY   int   // source region Y offset (pixels)
+	SrcW   int   // source region width (pixels, 0 = full)
+	SrcH   int   // source region height (pixels, 0 = full)
+	ZIndex int32 // stacking order (negative = behind text)
+}
+
 // Place makes an image visible at the given position. Returns a placement ID.
-func (c *Client) Place(ctx context.Context, handle uint32, anchor protocol.Anchor, width, height int) (uint32, error) {
-	result, err := c.call(ctx, protocol.MethodPlace, protocol.PlaceParams{
+// opts may be nil for defaults.
+func (c *Client) Place(ctx context.Context, handle uint32, anchor protocol.Anchor, width, height int, opts *PlaceOpts) (uint32, error) {
+	params := protocol.PlaceParams{
 		Handle: handle,
 		Anchor: anchor,
 		Width:  width,
 		Height: height,
-	})
+	}
+	if opts != nil {
+		params.SrcX = opts.SrcX
+		params.SrcY = opts.SrcY
+		params.SrcW = opts.SrcW
+		params.SrcH = opts.SrcH
+		params.ZIndex = opts.ZIndex
+	}
+	result, err := c.call(ctx, protocol.MethodPlace, params)
 	if err != nil {
 		return 0, err
 	}

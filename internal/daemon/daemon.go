@@ -75,6 +75,7 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// TTY writer gets its own context — it must stay alive until the engine
 	// finishes cleanup (sending delete commands to the Writes channel).
 	writerCtx, writerCancel := context.WithCancel(context.Background())
+	defer writerCancel()
 
 	var writerWg sync.WaitGroup
 	writerWg.Add(1)
@@ -109,7 +110,8 @@ func (d *Daemon) Run(ctx context.Context) error {
 	// Wait for engine to finish (includes cleanup: deleting placements, freeing images)
 	engineWg.Wait()
 
-	// Now stop the TTY writer — it has drained all cleanup commands
+	// Now stop the TTY writer — it has drained all cleanup commands.
+	// writerCancel is deferred above, but call explicitly for clear shutdown ordering.
 	writerCancel()
 	writerWg.Wait()
 

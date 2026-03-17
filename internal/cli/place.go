@@ -41,7 +41,7 @@ var placeCmd = &cobra.Command{
 			Type: "absolute",
 			Row:  placeRow,
 			Col:  placeCol,
-		}, placeWidth, placeHeight)
+		}, placeWidth, placeHeight, nil)
 		if err != nil {
 			return fmt.Errorf("placing: %w", err)
 		}

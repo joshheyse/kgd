@@ -75,7 +75,11 @@ type PlaceCommand struct {
 }
 
 // Serialize encodes the placement command as a kitty APC sequence.
+// Returns empty string if Row or Col is negative (invalid cursor position).
 func (c PlaceCommand) Serialize() string {
+	if c.Row < 0 || c.Col < 0 {
+		return ""
+	}
 	var parts []string
 	parts = append(parts, "a=p")
 	parts = append(parts, fmt.Sprintf("i=%d", c.ImageID))

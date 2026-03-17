@@ -29,6 +29,16 @@ func TestParseRGBColor(t *testing.T) {
 			want:  Color16{R: 0x3A3A, G: 0x4242, B: 0x5050},
 		},
 		{
+			name:  "1-digit hex",
+			input: "f/0/8",
+			want:  Color16{R: 0xFFFF, G: 0, B: 0x8888},
+		},
+		{
+			name:  "3-digit hex",
+			input: "abc/def/123",
+			want:  Color16{R: 0xABCA, G: 0xDEFD, B: 0x1231},
+		},
+		{
 			name:  "empty",
 			input: "",
 			want:  Color16{},

@@ -174,7 +174,7 @@ local function send_notification(method, params)
 end
 
 --- Setup and connect to the daemon.
----@param opts { socket_path?: string, auto_launch?: boolean, client_type?: string }
+---@param opts { socket_path?: string, auto_launch?: boolean, client_type?: string, session_id?: string }
 function M.setup(opts)
   if connected then return end
 
@@ -211,11 +211,15 @@ function M.setup(opts)
     pipe:read_start(on_read)
 
     -- Send hello
-    send_request("hello", {
+    local hello_params = {
       client_type = opts.client_type or "kgd.nvim",
       pid = vim.fn.getpid(),
       label = "neovim",
-    }, function(result, hello_err)
+    }
+    if opts.session_id and opts.session_id ~= "" then
+      hello_params.session_id = opts.session_id
+    end
+    send_request("hello", hello_params, function(result, hello_err)
       if hello_err then
         vim.notify("[kgd] hello failed: " .. hello_err, vim.log.levels.WARN)
         return

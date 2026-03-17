@@ -3,22 +3,22 @@ package engine
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"github.com/joshheyse/kgd/internal/allocator"
 	"github.com/joshheyse/kgd/internal/graphics"
 	"github.com/joshheyse/kgd/internal/protocol"
 	"github.com/joshheyse/kgd/internal/tty"
 	"github.com/joshheyse/kgd/internal/upload"
+	"log/slog"
 )
 
 // Engine is the PlacementEngine — the single goroutine that owns all
 // mutable placement state. All other goroutines communicate with it via
 // the Events channel.
 type Engine struct {
-	Events chan Event
-	done   chan struct{} // closed when Run() exits, signals senders to stop
-	writer *tty.Writer
-	gfx    graphics.Graphics
+	Events  chan Event
+	done    chan struct{} // closed when Run() exits, signals senders to stop
+	writer  *tty.Writer
+	gfx     graphics.Graphics
 	idAlloc *allocator.IDAllocator
 	cache   *upload.Cache
 
@@ -215,7 +215,7 @@ func (e *Engine) handlePlace(req PlaceRequest) {
 		ZIndex:      req.Params.ZIndex,
 	}
 
-	row, col, visible := p.ScreenPos(e.panes, e.wins)
+	row, col, visible := p.ScreenPos(e.panes, e.wins, int(e.termSize.Rows), int(e.termSize.Cols))
 	p.TermRow = row
 	p.TermCol = col
 	p.Visible = visible
@@ -453,7 +453,18 @@ func (e *Engine) cleanupRenderedPlacements() {
 
 // drain empties the event channel on shutdown, replying to any pending requests
 // with errors so client goroutines don't block.
-// NOTE: Any new Event type with a Reply channel must be handled here.
+//
+// Request types with Reply channels (must all be handled here):
+//   - HelloRequest
+//   - PlaceRequest
+//   - UploadRequest
+//   - ListRequest
+//   - StatusRequest
+//
+// Fire-and-forget types (safely discarded):
+//   - UnplaceRequest, UnplaceAllRequest, FreeRequest
+//   - ScrollUpdate, RegisterWin, UnregisterWin
+//   - UpdatePanes, ClientDisconnect, StopRequest
 func (e *Engine) drain() {
 	for {
 		select {
@@ -470,7 +481,7 @@ func (e *Engine) drain() {
 			case StatusRequest:
 				ev.Reply <- StatusReply{}
 			default:
-				// Fire-and-forget events — discard
+				// Fire-and-forget events — discard during shutdown
 			}
 		default:
 			return
@@ -519,7 +530,7 @@ func (e *Engine) recomputePlacements() {
 	}
 
 	for _, p := range e.placements {
-		row, col, visible := p.ScreenPos(e.panes, e.wins)
+		row, col, visible := p.ScreenPos(e.panes, e.wins, int(e.termSize.Rows), int(e.termSize.Cols))
 		wasVisible := p.Visible
 		wasRendered := p.Rendered
 		oldRow := p.TermRow

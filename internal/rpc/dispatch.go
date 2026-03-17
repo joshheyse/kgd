@@ -19,6 +19,10 @@ func (c *Client) sendEvent(ev engine.Event) error {
 }
 
 // sendAndWait sends an event to the engine and waits for a reply.
+// The two-stage select is safe because the engine's done channel is only closed
+// after drain() completes (defers execute LIFO: drain first, then close(done)).
+// So any event successfully sent in the first select will be processed by either
+// the engine's Run loop or its drain function before done is closed.
 func sendAndWait[T any](c *Client, ev engine.Event, reply <-chan T) (T, error) {
 	select {
 	case c.engine.Events <- ev:

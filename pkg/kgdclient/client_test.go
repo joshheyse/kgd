@@ -91,7 +91,7 @@ func TestClientUploadAndPlace(t *testing.T) {
 		Type: "absolute",
 		Row:  5,
 		Col:  10,
-	}, 20, 15)
+	}, 20, 15, nil)
 	if err != nil {
 		t.Fatalf("place: %v", err)
 	}

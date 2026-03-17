@@ -109,7 +109,11 @@ func (w *Writer) Run(ctx context.Context) {
 	// in blocking mode, making SetReadDeadline fail.
 	colors := QueryColors(w.ttyFile, w.inTmux)
 	if colors.FG != (Color16{}) || colors.BG != (Color16{}) {
-		w.Colors <- colors
+		select {
+		case w.Colors <- colors:
+		default:
+			slog.Warn("colors channel full, dropping initial colors")
+		}
 		slog.Info("terminal colors",
 			"fg", fmt.Sprintf("#%04x%04x%04x", colors.FG.R, colors.FG.G, colors.FG.B),
 			"bg", fmt.Sprintf("#%04x%04x%04x", colors.BG.R, colors.BG.G, colors.BG.B))
@@ -117,7 +121,11 @@ func (w *Writer) Run(ctx context.Context) {
 
 	// Send initial size (calls Fd() internally)
 	if sz, err := w.QuerySize(); err == nil {
-		w.Size <- sz
+		select {
+		case w.Size <- sz:
+		default:
+			slog.Warn("size channel full, dropping initial size")
+		}
 		slog.Info("terminal size", "rows", sz.Rows, "cols", sz.Cols,
 			"xpixel", sz.XPixel, "ypixel", sz.YPixel)
 	}
@@ -160,6 +168,7 @@ func (w *Writer) Run(ctx context.Context) {
 				select {
 				case w.Size <- sz:
 				default:
+					slog.Warn("size channel full, dropping resize event")
 				}
 			}
 		}

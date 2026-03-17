@@ -8,6 +8,12 @@ import (
 )
 
 // TTYGraphics implements Graphics by writing kitty protocol sequences to a TTY.
+//
+// Sends to writer.Writes are blocking. This is safe because:
+//   - The TTY writer outlives the engine (writerCancel runs after engineWg.Wait)
+//   - Only the engine goroutine calls these methods (single-owner)
+//   - The channel buffer (256) absorbs burst writes during batched operations
+//   - During shutdown cleanup, the writer is still running and draining the channel
 type TTYGraphics struct {
 	writer   *tty.Writer
 	inTmux   bool
