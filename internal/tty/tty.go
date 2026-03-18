@@ -31,7 +31,10 @@ type Writer struct {
 	Size   chan WinSize
 	Colors chan TermColors
 
-	ttyFile   *os.File
+	ttyFile *os.File
+	// closeOnce guards idempotent Close() — the one exception to the
+	// "no locks outside upload cache" rule, since both the Run() defer
+	// path and an explicit Close() caller may race during shutdown.
 	closeOnce sync.Once
 	inTmux    bool
 	debugFile *os.File // if set, tee all writes here for debugging

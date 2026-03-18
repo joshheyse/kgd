@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  go:
+    name: Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.25"
+      - run: go build ./cmd/kgd
+      - run: go vet ./...
+      - run: go test ./...
+
+  c:
+    name: C
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build
+        run: |
+          clang -Wall -Wextra -Werror -pedantic -std=c11 \
+            -DMPACK_NODE=0 -DMPACK_EXTENSIONS=0 \
+            -c clients/c/kgd.c -o clients/c/kgd.o
+      - name: Test
+        run: |
+          clang -Wall -Wextra -std=c11 -g \
+            -DMPACK_NODE=0 -DMPACK_EXTENSIONS=0 \
+            -fsanitize=address,undefined -fno-omit-frame-pointer \
+            clients/c/mpack.c clients/c/kgd_test.c \
+            -o clients/c/kgd_test_bin -lpthread
+          clients/c/kgd_test_bin
+
+  rust:
+    name: Rust
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions-rust-lang/setup-rust-toolchain@v1
+        with:
+          components: clippy
+      - run: cargo test
+        working-directory: clients/rust
+      - run: cargo clippy -- -D warnings
+        working-directory: clients/rust
+
+  nodejs:
+    name: Node.js
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: npm ci
+        working-directory: clients/nodejs
+      - run: npm test
+        working-directory: clients/nodejs
+
+  lua:
+    name: Lua
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Lua and dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lua5.4 liblua5.4-dev luarocks
+          sudo luarocks install busted
+          sudo luarocks install luasocket
+          sudo luarocks install lua-messagepack
+      - run: busted spec/
+        working-directory: clients/lua
+
+  zig:
+    name: Zig
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: "0.14.0"
+      - run: zig build test
+        working-directory: clients/zig
+
+  swift:
+    name: Swift
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: swift-actions/setup-swift@v2
+        with:
+          swift-version: "6.0"
+      - run: swift test
+        working-directory: clients/swift
+
+  jvm:
+    name: Kotlin/JVM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: gradle/actions/setup-gradle@v4
+      - run: gradle test
+        working-directory: clients/jvm
+
+  dotnet:
+    name: .NET
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0"
+      - run: dotnet test
+        working-directory: clients/dotnet
+
+  ocaml:
+    name: OCaml
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: ocaml/setup-ocaml@v3
+        with:
+          ocaml-compiler: "5.2"
+      - run: opam exec -- dune runtest
+        working-directory: clients/ocaml

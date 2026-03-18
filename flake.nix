@@ -33,14 +33,40 @@
 
     devShells = forEachSystem ({pkgs, ...}: {
       default = pkgs.mkShell {
-        buildInputs = with pkgs; [
-          go
-          gopls
-          gotools
-          just
-          git
-          python3
-        ];
+        buildInputs = with pkgs;
+          [
+            # Core daemon (Go)
+            go
+            gopls
+            gotools
+            just
+            git
+            # C client
+            clang
+            clang-tools
+            cppcheck
+            # Python client
+            python3
+          ]
+          ++ lib.optionals stdenv.isLinux [
+            # Client toolchains — on Darwin these conflict with clang's Apple SDK,
+            # so install them via native package managers (rustup, nvm, etc.)
+            rustc
+            cargo
+            clippy
+            rustfmt
+            nodejs
+            lua
+            luarocks
+            zig
+            kotlin
+            gradle
+            dotnet-sdk_8
+            ocaml
+            dune_3
+            opam
+            swift
+          ];
       };
     });
   };

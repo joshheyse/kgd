@@ -166,7 +166,11 @@ void kgd_close(kgd_client *c);
 /* Get last error message (thread-local). */
 const char *kgd_last_error(void);
 
-/* Set notification callbacks. Callbacks are invoked from the reader thread. */
+/*
+ * Set notification callbacks. Callbacks are invoked from the reader thread.
+ * Must be called before the first RPC call (e.g. kgd_upload) to avoid a
+ * data race with the reader thread. Safe to call immediately after kgd_connect().
+ */
 void kgd_set_evicted_cb(kgd_client *c, kgd_evicted_cb cb, void *userdata);
 void kgd_set_topology_cb(kgd_client *c, kgd_topology_cb cb, void *userdata);
 void kgd_set_visibility_cb(kgd_client *c, kgd_visibility_cb cb, void *userdata);

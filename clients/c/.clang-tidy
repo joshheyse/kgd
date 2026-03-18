@@ -1,0 +1,13 @@
+Checks: >
+  bugprone-*,
+  clang-analyzer-*,
+  cert-*,
+  misc-*,
+  readability-else-after-return,
+  -readability-magic-numbers,
+  -bugprone-easily-swappable-parameters,
+  -clang-analyzer-security.insecureAPI.DeprecatedOrUnsafeBufferHandling
+
+CheckOptions:
+  - key: bugprone-assert-side-effect.AssertMacros
+    value: assert

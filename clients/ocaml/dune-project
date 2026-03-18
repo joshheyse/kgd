@@ -1,0 +1,25 @@
+(lang dune 3.0)
+
+(name kgd-client)
+
+(generate_opam_files true)
+
+(source
+ (github user/kgd))
+
+(license MIT)
+
+(authors "kgd contributors")
+
+(maintainers "kgd contributors")
+
+(package
+ (name kgd-client)
+ (synopsis "OCaml client library for kgd (Kitty Graphics Daemon)")
+ (description
+  "Client library for communicating with kgd over Unix domain sockets using msgpack-RPC.")
+ (depends
+  (ocaml
+   (>= 4.14.0))
+  (dune
+   (>= 3.0))))

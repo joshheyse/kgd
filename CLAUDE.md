@@ -16,6 +16,7 @@ just vet                 # go vet ./...
 just check               # build + vet + test
 just fmt                 # gofmt -w .
 just fmt-check           # verify formatting
+just clients-check       # run all client library tests
 ```
 
 ## Project Structure
@@ -32,6 +33,19 @@ internal/
   kitty/                      # Kitty graphics protocol encoding
   allocator/                  # Kitty image ID allocator
   logging/                    # slog setup (file + stderr)
+pkg/kgdclient/               # Go client library
+clients/
+  c/                          # C client (FFI-friendly, mpack-based)
+  python/                     # Python client (reference implementation)
+  rust/                       # Rust client (tokio async + sync wrapper)
+  nodejs/                     # Node.js/TypeScript client
+  lua/                        # Lua standalone client (luasocket + lua-MessagePack)
+  zig/                        # Zig client (hand-rolled msgpack)
+  swift/                      # Swift client (structured concurrency)
+  jvm/                        # Kotlin/JVM client (coroutines)
+  dotnet/                     # C#/.NET client (async/await)
+  ocaml/                      # OCaml client (threads + hand-rolled msgpack)
+nvim/                         # kgd.nvim Neovim plugin (Lua)
 ```
 
 ## Architecture

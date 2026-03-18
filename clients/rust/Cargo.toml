@@ -1,0 +1,16 @@
+[package]
+name = "kgd-client"
+version = "0.1.0"
+edition = "2021"
+description = "Rust client library for kgd (Kitty Graphics Daemon)"
+license = "MIT"
+repository = "https://github.com/joshheyse/kgd"
+keywords = ["kitty", "terminal", "graphics", "ipc"]
+categories = ["api-bindings", "asynchronous"]
+
+[dependencies]
+rmpv = "1"
+tokio = { version = "1", features = ["net", "rt-multi-thread", "sync", "time", "process", "io-util", "macros"] }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }

@@ -1,0 +1,4 @@
+(library
+ (name kgd_client)
+ (public_name kgd-client)
+ (libraries unix threads.posix))

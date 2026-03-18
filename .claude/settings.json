@@ -1,0 +1,10 @@
+{
+  "sandbox": {
+    "excludedCommands": [
+      "ssh",
+      "gh",
+      "git",
+      "gpg"
+    ]
+  }
+}

@@ -20,6 +20,16 @@ result-*
 *.log
 log.txt
 
+# Client build artifacts
+clients/jvm/.gradle/
+clients/nodejs/node_modules/
+clients/rust/target/
+clients/dotnet/**/bin/
+clients/dotnet/**/obj/
+clients/ocaml/_build/
+clients/zig/.zig-cache/
+clients/swift/.build/
+
 # OS
 .DS_Store
 Thumbs.db

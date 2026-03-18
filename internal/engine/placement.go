@@ -28,8 +28,15 @@ type Placement struct {
 	Rendered bool
 }
 
-// ScreenPos computes the absolute terminal position for this placement
+// ScreenPos computes the absolute terminal position (0-based) for this placement
 // given pane and window geometry. Returns (row, col, visible).
+//
+// Anchor resolution:
+//   - "absolute": row/col used directly as 0-based terminal coordinates
+//   - "pane": row/col are 0-based offsets within the pane; resolved by adding pane.Top/Left
+//   - "nvim_win": buf_line is scroll-adjusted (buf_line - scroll_top), col is relative to window left
+//
+// The returned coordinates are 0-based; callers must add 1 for 1-based terminal escapes.
 // termRows and termCols are used for absolute anchor bounds checking (0 means unknown/skip).
 func (p *Placement) ScreenPos(panes map[string]PaneGeometry, wins map[int]WinGeometry, termRows, termCols int) (int, int, bool) {
 	switch p.Anchor.Type {
