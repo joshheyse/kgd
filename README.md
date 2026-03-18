@@ -67,7 +67,7 @@ kgd provides native client libraries for 11 languages, all communicating over th
 |----------|----------|-------|
 | Go | `pkg/kgdclient/` | In-repo, shares protocol types |
 | Python | `clients/python/` | Reference implementation |
-| C | `clients/c/` | FFI-friendly, mpack-based |
+| C | `clients/c/` | FFI-friendly, mpack-based, CMake/CPM ready |
 | Rust | `clients/rust/` | Tokio async + sync wrapper |
 | TypeScript | `clients/nodejs/` | Node.js, EventEmitter-based |
 | Lua | `clients/lua/` | Standalone, luasocket + MessagePack |
@@ -76,6 +76,20 @@ kgd provides native client libraries for 11 languages, all communicating over th
 | Kotlin | `clients/jvm/` | Coroutines + blocking wrapper |
 | C# | `clients/dotnet/` | async/await |
 | OCaml | `clients/ocaml/` | Threads + hand-rolled msgpack |
+
+### C client with CMake/CPM
+
+```cmake
+CPMAddPackage(
+  NAME kgd
+  GITHUB_REPOSITORY joshheyse/kgd
+  GIT_TAG main
+  SOURCE_SUBDIR clients/c
+  SYSTEM TRUE
+)
+
+target_link_libraries(myapp PRIVATE kgd::kgd)
+```
 
 ### Example (Python)
 
