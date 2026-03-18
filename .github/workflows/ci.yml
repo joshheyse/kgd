@@ -150,7 +150,7 @@ jobs:
       - uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: "5.2"
-      - run: opam install dune ocamlformat --yes
+      - run: opam install dune 'ocamlformat=0.28.1' --yes
       - name: Format check
         run: opam exec -- dune build @fmt
         working-directory: clients/ocaml
