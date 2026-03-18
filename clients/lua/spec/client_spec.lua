@@ -194,7 +194,7 @@ describe("kgd.protocol", function()
                 win_id = 5,
                 scroll_top = 42,
             })
-            local msgs, rem = protocol.decode(encoded)
+            local msgs = protocol.decode(encoded)
             assert.equal(1, #msgs)
             local method, params = protocol.parse_notification(msgs[1])
             assert.equal("register_win", method)
