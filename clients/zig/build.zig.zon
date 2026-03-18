@@ -1,8 +1,6 @@
 .{
-    .name = .kgd_zig,
-    .version = .{ 0, 1, 0, 0 },
-    .fingerprint = 0xc7aef3b2d0150e59,
-    .minimum_zig_version = .{ 0, 14, 0 },
+    .name = "kgd_zig",
+    .version = "0.1.0",
 
     .paths = .{
         "build.zig",
