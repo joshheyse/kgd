@@ -53,7 +53,8 @@ test "Anchor nvim_win mapCount" {
 
 test "AnchorType string round-trip" {
     inline for (.{ .absolute, .pane, .nvim_win }) |at| {
-        const s = at.toString();
+        const typed: kgd.AnchorType = at;
+        const s = typed.toString();
         const parsed = kgd.AnchorType.fromString(s);
         try std.testing.expectEqual(at, parsed.?);
     }
