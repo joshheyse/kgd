@@ -56,9 +56,9 @@ typedef struct {
 /* Logical position for a placement */
 typedef struct {
     kgd_anchor_type type;
-    const char *pane_id;  /* for KGD_ANCHOR_PANE */
-    int win_id;           /* for KGD_ANCHOR_NVIM_WIN */
-    int buf_line;         /* for KGD_ANCHOR_NVIM_WIN */
+    const char *pane_id; /* for KGD_ANCHOR_PANE */
+    int win_id;          /* for KGD_ANCHOR_NVIM_WIN */
+    int buf_line;        /* for KGD_ANCHOR_NVIM_WIN */
     int row;
     int col;
 } kgd_anchor;
@@ -71,10 +71,10 @@ typedef struct {
 
 /* Connection options */
 typedef struct {
-    const char *socket_path;  /* NULL = use $KGD_SOCKET */
-    const char *session_id;   /* NULL = stateful mode */
-    const char *client_type;  /* e.g. "myapp" */
-    const char *label;        /* human-readable label */
+    const char *socket_path; /* NULL = use $KGD_SOCKET */
+    const char *session_id;  /* NULL = stateful mode */
+    const char *client_type; /* e.g. "myapp" */
+    const char *label;       /* human-readable label */
 } kgd_options;
 
 /* Hello result (populated after connect) */
@@ -119,14 +119,12 @@ kgd_client *kgd_connect(const kgd_options *opts);
 const kgd_hello_result *kgd_get_hello(const kgd_client *c);
 
 /* Upload image data. Returns handle via out_handle. */
-kgd_error kgd_upload(kgd_client *c, const void *data, size_t len,
-                     const char *format, int width, int height,
-                     uint32_t *out_handle);
+kgd_error kgd_upload(kgd_client *c, const void *data, size_t len, const char *format, int width,
+                     int height, uint32_t *out_handle);
 
 /* Place an image. opts may be NULL. Returns placement ID via out_id. */
-kgd_error kgd_place(kgd_client *c, uint32_t handle, const kgd_anchor *anchor,
-                    int width, int height, const kgd_place_opts *opts,
-                    uint32_t *out_id);
+kgd_error kgd_place(kgd_client *c, uint32_t handle, const kgd_anchor *anchor, int width, int height,
+                    const kgd_place_opts *opts, uint32_t *out_id);
 
 /* Remove a placement. */
 kgd_error kgd_unplace(kgd_client *c, uint32_t placement_id);
@@ -138,9 +136,8 @@ kgd_error kgd_unplace_all(kgd_client *c);
 kgd_error kgd_free_handle(kgd_client *c, uint32_t handle);
 
 /* Register a neovim window. */
-kgd_error kgd_register_win(kgd_client *c, int win_id, const char *pane_id,
-                           int top, int left, int width, int height,
-                           int scroll_top);
+kgd_error kgd_register_win(kgd_client *c, int win_id, const char *pane_id, int top, int left,
+                           int width, int height, int scroll_top);
 
 /* Update scroll position. */
 kgd_error kgd_update_scroll(kgd_client *c, int win_id, int scroll_top);

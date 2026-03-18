@@ -249,10 +249,7 @@ fn decode_response() {
 
 #[test]
 fn decode_response_with_error() {
-    let err_map = map_from_pairs(vec![(
-        "message",
-        Value::String("invalid handle".into()),
-    )]);
+    let err_map = map_from_pairs(vec![("message", Value::String("invalid handle".into()))]);
     let msg = Value::Array(vec![
         Value::Integer(MSG_RESPONSE.into()),
         Value::Integer(7.into()),

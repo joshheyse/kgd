@@ -56,17 +56,17 @@ export const NOTIFY_THEME_CHANGED = "theme_changed" as const;
 
 /** A decoded response message: [1, msgid, error, result]. */
 export interface ResponseMessage {
-  type: typeof MSG_RESPONSE;
-  msgid: number;
-  error: unknown;
-  result: unknown;
+	type: typeof MSG_RESPONSE;
+	msgid: number;
+	error: unknown;
+	result: unknown;
 }
 
 /** A decoded notification message: [2, method, [params]]. */
 export interface NotificationMessage {
-  type: typeof MSG_NOTIFICATION;
-  method: string;
-  params: Record<string, unknown>;
+	type: typeof MSG_NOTIFICATION;
+	method: string;
+	params: Record<string, unknown>;
 }
 
 export type DecodedMessage = ResponseMessage | NotificationMessage;
@@ -84,12 +84,12 @@ export type DecodedMessage = ResponseMessage | NotificationMessage;
  * @returns Encoded msgpack bytes ready to write to the socket.
  */
 export function encodeRequest(
-  msgid: number,
-  method: string,
-  params: Record<string, unknown> | null,
+	msgid: number,
+	method: string,
+	params: Record<string, unknown> | null,
 ): Uint8Array {
-  const paramsArray = params !== null ? [params] : [];
-  return encode([MSG_REQUEST, msgid, method, paramsArray]);
+	const paramsArray = params !== null ? [params] : [];
+	return encode([MSG_REQUEST, msgid, method, paramsArray]);
 }
 
 /**
@@ -100,11 +100,11 @@ export function encodeRequest(
  * @returns Encoded msgpack bytes ready to write to the socket.
  */
 export function encodeNotification(
-  method: string,
-  params: Record<string, unknown> | null,
+	method: string,
+	params: Record<string, unknown> | null,
 ): Uint8Array {
-  const paramsArray = params !== null ? [params] : [];
-  return encode([MSG_NOTIFICATION, method, paramsArray]);
+	const paramsArray = params !== null ? [params] : [];
+	return encode([MSG_NOTIFICATION, method, paramsArray]);
 }
 
 // ---------------------------------------------------------------------------
@@ -117,40 +117,40 @@ export function encodeNotification(
  * Returns null if the value is not a valid msgpack-RPC message.
  */
 export function parseMessage(value: unknown): DecodedMessage | null {
-  if (!Array.isArray(value) || value.length < 3) {
-    return null;
-  }
+	if (!Array.isArray(value) || value.length < 3) {
+		return null;
+	}
 
-  const msgType = value[0] as number;
+	const msgType = value[0] as number;
 
-  if (msgType === MSG_RESPONSE && value.length >= 4) {
-    return {
-      type: MSG_RESPONSE,
-      msgid: value[1] as number,
-      error: value[2],
-      result: value[3],
-    };
-  }
+	if (msgType === MSG_RESPONSE && value.length >= 4) {
+		return {
+			type: MSG_RESPONSE,
+			msgid: value[1] as number,
+			error: value[2],
+			result: value[3],
+		};
+	}
 
-  if (msgType === MSG_NOTIFICATION) {
-    const paramsArr = value[2];
-    let params: Record<string, unknown> = {};
-    if (
-      Array.isArray(paramsArr) &&
-      paramsArr.length > 0 &&
-      typeof paramsArr[0] === "object" &&
-      paramsArr[0] !== null
-    ) {
-      params = paramsArr[0] as Record<string, unknown>;
-    }
-    return {
-      type: MSG_NOTIFICATION,
-      method: value[1] as string,
-      params,
-    };
-  }
+	if (msgType === MSG_NOTIFICATION) {
+		const paramsArr = value[2];
+		let params: Record<string, unknown> = {};
+		if (
+			Array.isArray(paramsArr) &&
+			paramsArr.length > 0 &&
+			typeof paramsArr[0] === "object" &&
+			paramsArr[0] !== null
+		) {
+			params = paramsArr[0] as Record<string, unknown>;
+		}
+		return {
+			type: MSG_NOTIFICATION,
+			method: value[1] as string,
+			params,
+		};
+	}
 
-  return null;
+	return null;
 }
 
 /**
@@ -163,12 +163,12 @@ export function parseMessage(value: unknown): DecodedMessage | null {
  * @param stream - Async iterable of byte chunks (e.g., a Node.js socket).
  */
 export async function* messageStream(
-  stream: AsyncIterable<Uint8Array>,
+	stream: AsyncIterable<Uint8Array>,
 ): AsyncGenerator<DecodedMessage> {
-  for await (const value of decodeMultiStream(stream)) {
-    const msg = parseMessage(value);
-    if (msg !== null) {
-      yield msg;
-    }
-  }
+	for await (const value of decodeMultiStream(stream)) {
+		const msg = parseMessage(value);
+		if (msg !== null) {
+			yield msg;
+		}
+	}
 }

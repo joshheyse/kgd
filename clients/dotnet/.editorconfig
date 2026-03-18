@@ -1,0 +1,18 @@
+root = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# Use 'var' when type is apparent
+csharp_style_var_for_built_in_types = false
+csharp_style_var_when_type_is_apparent = true
+
+# Organize usings
+dotnet_sort_system_directives_first = true
+
+# Formatting
+dotnet_style_require_accessibility_modifiers = for_non_interface_members

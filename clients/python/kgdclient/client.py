@@ -7,12 +7,11 @@ import socket
 import subprocess
 import threading
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
 
 import msgpack
-
 
 # msgpack-rpc message types
 _MSG_REQUEST = 0
@@ -43,6 +42,7 @@ NOTIFY_THEME_CHANGED = "theme_changed"
 @dataclass
 class Color:
     """RGB color with 16-bit per channel precision."""
+
     r: int = 0
     g: int = 0
     b: int = 0
@@ -51,6 +51,7 @@ class Color:
 @dataclass
 class Anchor:
     """Describes a logical position for a placement."""
+
     type: str = "absolute"
     pane_id: str = ""
     win_id: int = 0
@@ -76,6 +77,7 @@ class Anchor:
 @dataclass
 class PlacementInfo:
     """Describes a single active placement."""
+
     placement_id: int = 0
     client_id: str = ""
     handle: int = 0
@@ -87,6 +89,7 @@ class PlacementInfo:
 @dataclass
 class StatusResult:
     """Daemon status information."""
+
     clients: int = 0
     placements: int = 0
     images: int = 0
@@ -97,6 +100,7 @@ class StatusResult:
 @dataclass
 class Options:
     """Options for connecting to the kgd daemon."""
+
     socket_path: str = ""
     session_id: str = ""
     client_type: str = ""
@@ -189,19 +193,31 @@ class Client:
 
     def upload(self, data: bytes, fmt: str, width: int, height: int) -> int:
         """Upload image data and return a handle."""
-        result = self._call(METHOD_UPLOAD, {
-            "data": data,
-            "format": fmt,
-            "width": width,
-            "height": height,
-        })
+        result = self._call(
+            METHOD_UPLOAD,
+            {
+                "data": data,
+                "format": fmt,
+                "width": width,
+                "height": height,
+            },
+        )
         if isinstance(result, dict):
             return result.get("handle", 0)
         raise RuntimeError(f"unexpected upload result: {result}")
 
-    def place(self, handle: int, anchor: Anchor, width: int, height: int,
-              src_x: int = 0, src_y: int = 0, src_w: int = 0, src_h: int = 0,
-              z_index: int = 0) -> int:
+    def place(
+        self,
+        handle: int,
+        anchor: Anchor,
+        width: int,
+        height: int,
+        src_x: int = 0,
+        src_y: int = 0,
+        src_w: int = 0,
+        src_h: int = 0,
+        z_index: int = 0,
+    ) -> int:
         """Place an image and return a placement ID."""
         params: dict[str, Any] = {
             "handle": handle,
@@ -237,25 +253,39 @@ class Client:
         """Release an uploaded image handle."""
         self._call(METHOD_FREE, {"handle": handle})
 
-    def register_win(self, win_id: int, pane_id: str = "", top: int = 0, left: int = 0,
-                     width: int = 0, height: int = 0, scroll_top: int = 0) -> None:
+    def register_win(
+        self,
+        win_id: int,
+        pane_id: str = "",
+        top: int = 0,
+        left: int = 0,
+        width: int = 0,
+        height: int = 0,
+        scroll_top: int = 0,
+    ) -> None:
         """Register a neovim window geometry."""
-        self._notify(METHOD_REGISTER_WIN, {
-            "win_id": win_id,
-            "pane_id": pane_id,
-            "top": top,
-            "left": left,
-            "width": width,
-            "height": height,
-            "scroll_top": scroll_top,
-        })
+        self._notify(
+            METHOD_REGISTER_WIN,
+            {
+                "win_id": win_id,
+                "pane_id": pane_id,
+                "top": top,
+                "left": left,
+                "width": width,
+                "height": height,
+                "scroll_top": scroll_top,
+            },
+        )
 
     def update_scroll(self, win_id: int, scroll_top: int) -> None:
         """Update scroll position for a registered window."""
-        self._notify(METHOD_UPDATE_SCROLL, {
-            "win_id": win_id,
-            "scroll_top": scroll_top,
-        })
+        self._notify(
+            METHOD_UPDATE_SCROLL,
+            {
+                "win_id": win_id,
+                "scroll_top": scroll_top,
+            },
+        )
 
     def unregister_win(self, win_id: int) -> None:
         """Unregister a neovim window."""
@@ -268,14 +298,16 @@ class Client:
             placements = []
             for p in result.get("placements", []) or []:
                 if isinstance(p, dict):
-                    placements.append(PlacementInfo(
-                        placement_id=p.get("placement_id", 0),
-                        client_id=p.get("client_id", ""),
-                        handle=p.get("handle", 0),
-                        visible=p.get("visible", False),
-                        row=p.get("row", 0),
-                        col=p.get("col", 0),
-                    ))
+                    placements.append(
+                        PlacementInfo(
+                            placement_id=p.get("placement_id", 0),
+                            client_id=p.get("client_id", ""),
+                            handle=p.get("handle", 0),
+                            visible=p.get("visible", False),
+                            row=p.get("row", 0),
+                            col=p.get("col", 0),
+                        )
+                    )
             return placements
         return []
 
@@ -399,16 +431,27 @@ class Client:
             self.on_evicted(params.get("handle", 0))
         elif method == NOTIFY_TOPOLOGY_CHANGED and self.on_topology_changed:
             self.on_topology_changed(
-                params.get("cols", 0), params.get("rows", 0),
-                params.get("cell_width", 0), params.get("cell_height", 0),
+                params.get("cols", 0),
+                params.get("rows", 0),
+                params.get("cell_width", 0),
+                params.get("cell_height", 0),
             )
         elif method == NOTIFY_VISIBILITY_CHANGED and self.on_visibility_changed:
             self.on_visibility_changed(
-                params.get("placement_id", 0), params.get("visible", False),
+                params.get("placement_id", 0),
+                params.get("visible", False),
             )
         elif method == NOTIFY_THEME_CHANGED and self.on_theme_changed:
-            fg = Color(**{k: params.get("fg", {}).get(k, 0) for k in ("r", "g", "b")}) if "fg" in params else Color()
-            bg = Color(**{k: params.get("bg", {}).get(k, 0) for k in ("r", "g", "b")}) if "bg" in params else Color()
+            fg = (
+                Color(**{k: params.get("fg", {}).get(k, 0) for k in ("r", "g", "b")})
+                if "fg" in params
+                else Color()
+            )
+            bg = (
+                Color(**{k: params.get("bg", {}).get(k, 0) for k in ("r", "g", "b")})
+                if "bg" in params
+                else Color()
+            )
             self.on_theme_changed(fg, bg)
 
 
@@ -417,6 +460,7 @@ def _default_socket_path() -> str:
     runtime_dir = os.environ.get("XDG_RUNTIME_DIR", "")
     if not runtime_dir:
         import tempfile
+
         runtime_dir = tempfile.gettempdir()
     kitty_id = os.environ.get("KITTY_WINDOW_ID", "default")
     return str(Path(runtime_dir) / f"kgd-{kitty_id}.sock")
@@ -433,6 +477,7 @@ def _ensure_daemon(socket_path: str) -> None:
         pass
 
     import shutil
+
     kgd_path = shutil.which("kgd")
     if not kgd_path:
         raise FileNotFoundError("kgd not found in PATH")

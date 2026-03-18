@@ -16,13 +16,14 @@
 static int tests_run = 0;
 static int tests_passed = 0;
 
-#define RUN_TEST(fn) do { \
-    fprintf(stderr, "  %s ... ", #fn); \
-    tests_run++; \
-    fn(); \
-    tests_passed++; \
-    fprintf(stderr, "ok\n"); \
-} while (0)
+#define RUN_TEST(fn)                                                                               \
+    do {                                                                                           \
+        fprintf(stderr, "  %s ... ", #fn);                                                         \
+        tests_run++;                                                                               \
+        fn();                                                                                      \
+        tests_passed++;                                                                            \
+        fprintf(stderr, "ok\n");                                                                   \
+    } while (0)
 
 /* ---- Encoding Tests ---- */
 
@@ -55,7 +56,7 @@ static void test_encode_hello(void) {
     mpack_reader_init_data(&rd, data, size);
 
     assert(mpack_expect_array(&rd) == 4);
-    assert(mpack_expect_int(&rd) == 0); /* type: request */
+    assert(mpack_expect_int(&rd) == 0);  /* type: request */
     assert(mpack_expect_u32(&rd) == 42); /* msgid */
 
     char method[32];
@@ -129,9 +130,9 @@ static void test_encode_upload(void) {
     mpack_reader_t rd;
     mpack_reader_init_data(&rd, data, size);
     mpack_expect_array(&rd); /* 4 */
-    mpack_discard(&rd); /* type */
-    mpack_discard(&rd); /* msgid */
-    mpack_discard(&rd); /* method */
+    mpack_discard(&rd);      /* type */
+    mpack_discard(&rd);      /* msgid */
+    mpack_discard(&rd);      /* method */
     mpack_expect_array(&rd); /* params */
     uint32_t nkeys = mpack_expect_map(&rd);
     for (uint32_t i = 0; i < nkeys; i++) {
@@ -428,20 +429,30 @@ static void test_decode_list(void) {
 
     /* First placement */
     mpack_start_map(&w, 6);
-    mpack_write_cstr(&w, "placement_id"); mpack_write_u32(&w, 1);
-    mpack_write_cstr(&w, "client_id"); mpack_write_cstr(&w, "client-1");
-    mpack_write_cstr(&w, "handle"); mpack_write_u32(&w, 10);
-    mpack_write_cstr(&w, "visible"); mpack_write_bool(&w, true);
-    mpack_write_cstr(&w, "row"); mpack_write_int(&w, 5);
-    mpack_write_cstr(&w, "col"); mpack_write_int(&w, 12);
+    mpack_write_cstr(&w, "placement_id");
+    mpack_write_u32(&w, 1);
+    mpack_write_cstr(&w, "client_id");
+    mpack_write_cstr(&w, "client-1");
+    mpack_write_cstr(&w, "handle");
+    mpack_write_u32(&w, 10);
+    mpack_write_cstr(&w, "visible");
+    mpack_write_bool(&w, true);
+    mpack_write_cstr(&w, "row");
+    mpack_write_int(&w, 5);
+    mpack_write_cstr(&w, "col");
+    mpack_write_int(&w, 12);
     mpack_finish_map(&w);
 
     /* Second placement with extra unknown key */
     mpack_start_map(&w, 4);
-    mpack_write_cstr(&w, "placement_id"); mpack_write_u32(&w, 2);
-    mpack_write_cstr(&w, "client_id"); mpack_write_cstr(&w, "client-2");
-    mpack_write_cstr(&w, "handle"); mpack_write_u32(&w, 20);
-    mpack_write_cstr(&w, "unknown_key"); mpack_write_int(&w, 999);
+    mpack_write_cstr(&w, "placement_id");
+    mpack_write_u32(&w, 2);
+    mpack_write_cstr(&w, "client_id");
+    mpack_write_cstr(&w, "client-2");
+    mpack_write_cstr(&w, "handle");
+    mpack_write_u32(&w, 20);
+    mpack_write_cstr(&w, "unknown_key");
+    mpack_write_int(&w, 999);
     mpack_finish_map(&w);
 
     mpack_finish_array(&w);
@@ -466,20 +477,43 @@ static void test_decode_list(void) {
                 out = calloc(arr_count, sizeof(kgd_placement_info));
                 assert(out);
                 out_count = (int)arr_count;
-                enum { PK_PLACEMENT_ID, PK_CLIENT_ID, PK_HANDLE, PK_VISIBLE, PK_ROW, PK_COL, PK_COUNT };
-                const char *pkeys[] = {"placement_id", "client_id", "handle", "visible", "row", "col"};
+                enum {
+                    PK_PLACEMENT_ID,
+                    PK_CLIENT_ID,
+                    PK_HANDLE,
+                    PK_VISIBLE,
+                    PK_ROW,
+                    PK_COL,
+                    PK_COUNT
+                };
+                const char *pkeys[] = {"placement_id", "client_id", "handle",
+                                       "visible",      "row",       "col"};
                 for (uint32_t j = 0; j < arr_count && mpack_reader_error(&rd) == mpack_ok; j++) {
                     bool pfound[PK_COUNT] = {0};
                     uint32_t mkeys = mpack_expect_map_max(&rd, 32);
                     for (uint32_t k = 0; k < mkeys && mpack_reader_error(&rd) == mpack_ok; k++) {
                         switch (mpack_expect_key_cstr(&rd, pkeys, pfound, PK_COUNT)) {
-                        case PK_PLACEMENT_ID: out[j].placement_id = mpack_expect_u32(&rd); break;
-                        case PK_CLIENT_ID: mpack_expect_cstr(&rd, out[j].client_id, sizeof(out[j].client_id)); break;
-                        case PK_HANDLE: out[j].handle = mpack_expect_u32(&rd); break;
-                        case PK_VISIBLE: out[j].visible = mpack_expect_bool(&rd) ? 1 : 0; break;
-                        case PK_ROW: out[j].row = mpack_expect_int(&rd); break;
-                        case PK_COL: out[j].col = mpack_expect_int(&rd); break;
-                        default: mpack_discard(&rd); break;
+                        case PK_PLACEMENT_ID:
+                            out[j].placement_id = mpack_expect_u32(&rd);
+                            break;
+                        case PK_CLIENT_ID:
+                            mpack_expect_cstr(&rd, out[j].client_id, sizeof(out[j].client_id));
+                            break;
+                        case PK_HANDLE:
+                            out[j].handle = mpack_expect_u32(&rd);
+                            break;
+                        case PK_VISIBLE:
+                            out[j].visible = mpack_expect_bool(&rd) ? 1 : 0;
+                            break;
+                        case PK_ROW:
+                            out[j].row = mpack_expect_int(&rd);
+                            break;
+                        case PK_COL:
+                            out[j].col = mpack_expect_int(&rd);
+                            break;
+                        default:
+                            mpack_discard(&rd);
+                            break;
                         }
                     }
                     mpack_done_map(&rd);
@@ -523,11 +557,16 @@ static void test_decode_status(void) {
     mpack_writer_t w;
     mpack_writer_init_growable(&w, &resp, &resplen);
     mpack_start_map(&w, 5);
-    mpack_write_cstr(&w, "clients"); mpack_write_int(&w, 3);
-    mpack_write_cstr(&w, "placements"); mpack_write_int(&w, 7);
-    mpack_write_cstr(&w, "images"); mpack_write_int(&w, 5);
-    mpack_write_cstr(&w, "cols"); mpack_write_int(&w, 200);
-    mpack_write_cstr(&w, "rows"); mpack_write_int(&w, 50);
+    mpack_write_cstr(&w, "clients");
+    mpack_write_int(&w, 3);
+    mpack_write_cstr(&w, "placements");
+    mpack_write_int(&w, 7);
+    mpack_write_cstr(&w, "images");
+    mpack_write_int(&w, 5);
+    mpack_write_cstr(&w, "cols");
+    mpack_write_int(&w, 200);
+    mpack_write_cstr(&w, "rows");
+    mpack_write_int(&w, 50);
     mpack_finish_map(&w);
     assert(mpack_writer_destroy(&w) == mpack_ok);
 
@@ -541,12 +580,24 @@ static void test_decode_status(void) {
     uint32_t nkeys = mpack_expect_map_max(&rd, 32);
     for (uint32_t i = 0; i < nkeys && mpack_reader_error(&rd) == mpack_ok; i++) {
         switch (mpack_expect_key_cstr(&rd, skeys, sfound, SK_COUNT)) {
-        case SK_CLIENTS: out.clients = mpack_expect_int(&rd); break;
-        case SK_PLACEMENTS: out.placements = mpack_expect_int(&rd); break;
-        case SK_IMAGES: out.images = mpack_expect_int(&rd); break;
-        case SK_COLS: out.cols = mpack_expect_int(&rd); break;
-        case SK_ROWS: out.rows = mpack_expect_int(&rd); break;
-        default: mpack_discard(&rd); break;
+        case SK_CLIENTS:
+            out.clients = mpack_expect_int(&rd);
+            break;
+        case SK_PLACEMENTS:
+            out.placements = mpack_expect_int(&rd);
+            break;
+        case SK_IMAGES:
+            out.images = mpack_expect_int(&rd);
+            break;
+        case SK_COLS:
+            out.cols = mpack_expect_int(&rd);
+            break;
+        case SK_ROWS:
+            out.rows = mpack_expect_int(&rd);
+            break;
+        default:
+            mpack_discard(&rd);
+            break;
         }
     }
     mpack_done_map(&rd);
@@ -565,8 +616,8 @@ static void test_decode_status(void) {
 /* ---- process_message Tests ---- */
 
 /* Build a full msgpack-rpc response: [1, msgid, nil, result] */
-static void build_rpc_response(uint32_t msgid, const char *result, size_t result_len,
-                                char **out, size_t *outlen) {
+static void build_rpc_response(uint32_t msgid, const char *result, size_t result_len, char **out,
+                               size_t *outlen) {
     mpack_writer_t w;
     mpack_writer_init_growable(&w, out, outlen);
     mpack_start_array(&w, 4);
@@ -580,7 +631,7 @@ static void build_rpc_response(uint32_t msgid, const char *result, size_t result
 
 /* Build a full msgpack-rpc notification: [2, method, [params_map]] */
 static void build_notification(const char *method, const char *params, size_t params_len,
-                                char **out, size_t *outlen) {
+                               char **out, size_t *outlen) {
     mpack_writer_t w;
     mpack_writer_init_growable(&w, out, outlen);
     mpack_start_array(&w, 3);
@@ -717,10 +768,14 @@ static void test_notify_topology(void) {
     mpack_writer_t pw;
     mpack_writer_init_growable(&pw, &params, &params_len);
     mpack_start_map(&pw, 4);
-    mpack_write_cstr(&pw, "cols"); mpack_write_int(&pw, 160);
-    mpack_write_cstr(&pw, "rows"); mpack_write_int(&pw, 48);
-    mpack_write_cstr(&pw, "cell_width"); mpack_write_int(&pw, 9);
-    mpack_write_cstr(&pw, "cell_height"); mpack_write_int(&pw, 18);
+    mpack_write_cstr(&pw, "cols");
+    mpack_write_int(&pw, 160);
+    mpack_write_cstr(&pw, "rows");
+    mpack_write_int(&pw, 48);
+    mpack_write_cstr(&pw, "cell_width");
+    mpack_write_int(&pw, 9);
+    mpack_write_cstr(&pw, "cell_height");
+    mpack_write_int(&pw, 18);
     mpack_finish_map(&pw);
     assert(mpack_writer_destroy(&pw) == mpack_ok);
 
@@ -761,8 +816,10 @@ static void test_notify_visibility(void) {
     mpack_writer_t pw;
     mpack_writer_init_growable(&pw, &params, &params_len);
     mpack_start_map(&pw, 2);
-    mpack_write_cstr(&pw, "placement_id"); mpack_write_u32(&pw, 77);
-    mpack_write_cstr(&pw, "visible"); mpack_write_bool(&pw, true);
+    mpack_write_cstr(&pw, "placement_id");
+    mpack_write_u32(&pw, 77);
+    mpack_write_cstr(&pw, "visible");
+    mpack_write_bool(&pw, true);
     mpack_finish_map(&pw);
     assert(mpack_writer_destroy(&pw) == mpack_ok);
 
@@ -802,15 +859,21 @@ static void test_notify_theme(void) {
     mpack_start_map(&pw, 2);
     mpack_write_cstr(&pw, "fg");
     mpack_start_map(&pw, 3);
-    mpack_write_cstr(&pw, "r"); mpack_write_int(&pw, 255);
-    mpack_write_cstr(&pw, "g"); mpack_write_int(&pw, 128);
-    mpack_write_cstr(&pw, "b"); mpack_write_int(&pw, 64);
+    mpack_write_cstr(&pw, "r");
+    mpack_write_int(&pw, 255);
+    mpack_write_cstr(&pw, "g");
+    mpack_write_int(&pw, 128);
+    mpack_write_cstr(&pw, "b");
+    mpack_write_int(&pw, 64);
     mpack_finish_map(&pw);
     mpack_write_cstr(&pw, "bg");
     mpack_start_map(&pw, 3);
-    mpack_write_cstr(&pw, "r"); mpack_write_int(&pw, 10);
-    mpack_write_cstr(&pw, "g"); mpack_write_int(&pw, 20);
-    mpack_write_cstr(&pw, "b"); mpack_write_int(&pw, 30);
+    mpack_write_cstr(&pw, "r");
+    mpack_write_int(&pw, 10);
+    mpack_write_cstr(&pw, "g");
+    mpack_write_int(&pw, 20);
+    mpack_write_cstr(&pw, "b");
+    mpack_write_int(&pw, 30);
     mpack_finish_map(&pw);
     mpack_finish_map(&pw);
     assert(mpack_writer_destroy(&pw) == mpack_ok);
@@ -843,13 +906,20 @@ static void test_decode_unknown_keys(void) {
     mpack_writer_t w;
     mpack_writer_init_growable(&w, &resp, &resplen);
     mpack_start_map(&w, 7);
-    mpack_write_cstr(&w, "clients"); mpack_write_int(&w, 1);
-    mpack_write_cstr(&w, "extra1"); mpack_write_cstr(&w, "ignored");
-    mpack_write_cstr(&w, "placements"); mpack_write_int(&w, 2);
-    mpack_write_cstr(&w, "extra2"); mpack_write_int(&w, 999);
-    mpack_write_cstr(&w, "images"); mpack_write_int(&w, 3);
-    mpack_write_cstr(&w, "cols"); mpack_write_int(&w, 80);
-    mpack_write_cstr(&w, "rows"); mpack_write_int(&w, 24);
+    mpack_write_cstr(&w, "clients");
+    mpack_write_int(&w, 1);
+    mpack_write_cstr(&w, "extra1");
+    mpack_write_cstr(&w, "ignored");
+    mpack_write_cstr(&w, "placements");
+    mpack_write_int(&w, 2);
+    mpack_write_cstr(&w, "extra2");
+    mpack_write_int(&w, 999);
+    mpack_write_cstr(&w, "images");
+    mpack_write_int(&w, 3);
+    mpack_write_cstr(&w, "cols");
+    mpack_write_int(&w, 80);
+    mpack_write_cstr(&w, "rows");
+    mpack_write_int(&w, 24);
     mpack_finish_map(&w);
     assert(mpack_writer_destroy(&w) == mpack_ok);
 
@@ -863,12 +933,24 @@ static void test_decode_unknown_keys(void) {
     uint32_t nkeys = mpack_expect_map_max(&rd, 32);
     for (uint32_t i = 0; i < nkeys && mpack_reader_error(&rd) == mpack_ok; i++) {
         switch (mpack_expect_key_cstr(&rd, skeys, sfound, SK_COUNT)) {
-        case SK_CLIENTS: out.clients = mpack_expect_int(&rd); break;
-        case SK_PLACEMENTS: out.placements = mpack_expect_int(&rd); break;
-        case SK_IMAGES: out.images = mpack_expect_int(&rd); break;
-        case SK_COLS: out.cols = mpack_expect_int(&rd); break;
-        case SK_ROWS: out.rows = mpack_expect_int(&rd); break;
-        default: mpack_discard(&rd); break;
+        case SK_CLIENTS:
+            out.clients = mpack_expect_int(&rd);
+            break;
+        case SK_PLACEMENTS:
+            out.placements = mpack_expect_int(&rd);
+            break;
+        case SK_IMAGES:
+            out.images = mpack_expect_int(&rd);
+            break;
+        case SK_COLS:
+            out.cols = mpack_expect_int(&rd);
+            break;
+        case SK_ROWS:
+            out.rows = mpack_expect_int(&rd);
+            break;
+        default:
+            mpack_discard(&rd);
+            break;
         }
     }
     mpack_done_map(&rd);
@@ -891,8 +973,10 @@ static void test_decode_missing_keys(void) {
     mpack_writer_t w;
     mpack_writer_init_growable(&w, &resp, &resplen);
     mpack_start_map(&w, 2);
-    mpack_write_cstr(&w, "clients"); mpack_write_int(&w, 5);
-    mpack_write_cstr(&w, "cols"); mpack_write_int(&w, 132);
+    mpack_write_cstr(&w, "clients");
+    mpack_write_int(&w, 5);
+    mpack_write_cstr(&w, "cols");
+    mpack_write_int(&w, 132);
     mpack_finish_map(&w);
     assert(mpack_writer_destroy(&w) == mpack_ok);
 
@@ -906,12 +990,24 @@ static void test_decode_missing_keys(void) {
     uint32_t nkeys = mpack_expect_map_max(&rd, 32);
     for (uint32_t i = 0; i < nkeys && mpack_reader_error(&rd) == mpack_ok; i++) {
         switch (mpack_expect_key_cstr(&rd, skeys, sfound, SK_COUNT)) {
-        case SK_CLIENTS: out.clients = mpack_expect_int(&rd); break;
-        case SK_PLACEMENTS: out.placements = mpack_expect_int(&rd); break;
-        case SK_IMAGES: out.images = mpack_expect_int(&rd); break;
-        case SK_COLS: out.cols = mpack_expect_int(&rd); break;
-        case SK_ROWS: out.rows = mpack_expect_int(&rd); break;
-        default: mpack_discard(&rd); break;
+        case SK_CLIENTS:
+            out.clients = mpack_expect_int(&rd);
+            break;
+        case SK_PLACEMENTS:
+            out.placements = mpack_expect_int(&rd);
+            break;
+        case SK_IMAGES:
+            out.images = mpack_expect_int(&rd);
+            break;
+        case SK_COLS:
+            out.cols = mpack_expect_int(&rd);
+            break;
+        case SK_ROWS:
+            out.rows = mpack_expect_int(&rd);
+            break;
+        default:
+            mpack_discard(&rd);
+            break;
         }
     }
     mpack_done_map(&rd);

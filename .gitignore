@@ -22,7 +22,9 @@ log.txt
 
 # Client build artifacts
 clients/jvm/.gradle/
+clients/jvm/build/
 clients/nodejs/node_modules/
+clients/nodejs/dist/
 clients/rust/target/
 clients/dotnet/**/bin/
 clients/dotnet/**/obj/

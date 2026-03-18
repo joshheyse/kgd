@@ -111,8 +111,7 @@ impl Color {
 }
 
 /// The coordinate space an anchor refers to.
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[derive(Default)]
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub enum AnchorType {
     /// Absolute terminal coordinates.
     #[default]
@@ -395,10 +394,7 @@ impl Client {
         // Perform hello handshake.
         let mut hello_params: Vec<(&str, Value)> = vec![
             ("client_type", Value::String(opts.client_type.into())),
-            (
-                "pid",
-                Value::Integer((std::process::id() as i64).into()),
-            ),
+            ("pid", Value::Integer((std::process::id() as i64).into())),
             ("label", Value::String(opts.label.into())),
         ];
         if !opts.session_id.is_empty() {
@@ -406,10 +402,7 @@ impl Client {
         }
 
         let result = client
-            .call(
-                protocol::METHOD_HELLO,
-                Some(map_from_pairs(hello_params)),
-            )
+            .call(protocol::METHOD_HELLO, Some(map_from_pairs(hello_params)))
             .await
             .map_err(|e| KgdError::Hello(e.to_string()))?;
 
@@ -420,8 +413,12 @@ impl Client {
             cell_width: map_get_i64(&result, "cell_width"),
             cell_height: map_get_i64(&result, "cell_height"),
             in_tmux: map_get_bool(&result, "in_tmux"),
-            fg: map_get(&result, "fg").map(Color::from_value).unwrap_or_default(),
-            bg: map_get(&result, "bg").map(Color::from_value).unwrap_or_default(),
+            fg: map_get(&result, "fg")
+                .map(Color::from_value)
+                .unwrap_or_default(),
+            bg: map_get(&result, "bg")
+                .map(Color::from_value)
+                .unwrap_or_default(),
         };
 
         Ok(client)
@@ -740,11 +737,7 @@ async fn read_loop(
 }
 
 /// Dispatch a notification to the appropriate callback.
-async fn dispatch_notification(
-    callbacks: &Arc<RwLock<Callbacks>>,
-    method: &str,
-    params: &Value,
-) {
+async fn dispatch_notification(callbacks: &Arc<RwLock<Callbacks>>, method: &str, params: &Value) {
     // Params is the full params array, e.g. [{ ... }]. Extract the first element.
     let param = match params.as_array().and_then(|a| a.first()) {
         Some(v) => v,
@@ -779,8 +772,12 @@ async fn dispatch_notification(
         }
         NOTIFY_THEME_CHANGED => {
             if let Some(ref cb) = cbs.on_theme_changed {
-                let fg = map_get(param, "fg").map(Color::from_value).unwrap_or_default();
-                let bg = map_get(param, "bg").map(Color::from_value).unwrap_or_default();
+                let fg = map_get(param, "fg")
+                    .map(Color::from_value)
+                    .unwrap_or_default();
+                let bg = map_get(param, "bg")
+                    .map(Color::from_value)
+                    .unwrap_or_default();
                 cb(fg, bg);
             }
         }
@@ -906,8 +903,12 @@ impl SyncClient {
 
     /// Upload image data (blocking). Returns an image handle.
     pub fn upload(&self, data: &[u8], format: &str, width: i64, height: i64) -> Result<u32> {
-        self.runtime
-            .block_on(self.client.as_ref().expect("client consumed").upload(data, format, width, height))
+        self.runtime.block_on(
+            self.client
+                .as_ref()
+                .expect("client consumed")
+                .upload(data, format, width, height),
+        )
     }
 
     /// Place an image (blocking). Returns a placement ID.
@@ -929,8 +930,12 @@ impl SyncClient {
 
     /// Remove a placement (blocking).
     pub fn unplace(&self, placement_id: u32) -> Result<()> {
-        self.runtime
-            .block_on(self.client.as_ref().expect("client consumed").unplace(placement_id))
+        self.runtime.block_on(
+            self.client
+                .as_ref()
+                .expect("client consumed")
+                .unplace(placement_id),
+        )
     }
 
     /// Remove all placements for this client (blocking).

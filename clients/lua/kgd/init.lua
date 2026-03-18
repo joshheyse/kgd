@@ -499,7 +499,7 @@ function Client:poll(timeout)
         elseif err == "closed" then
             self._closed = true
             -- Wake all pending calls.
-            for id, entry in pairs(self._pending) do
+            for _, entry in pairs(self._pending) do
                 entry.err = "connection closed"
                 entry.done = true
             end

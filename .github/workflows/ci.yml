@@ -14,6 +14,8 @@ jobs:
       - uses: actions/setup-go@v5
         with:
           go-version: "1.25"
+      - run: gofmt -l . | grep . && exit 1 || true
+        name: Format check
       - run: go build ./cmd/kgd
       - run: go vet ./...
       - run: go test ./...
@@ -23,6 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - name: Format check
+        run: |
+          sudo apt-get update && sudo apt-get install -y clang-format
+          clang-format --dry-run --Werror clients/c/kgd.h clients/c/kgd.c clients/c/kgd_test.c
       - name: Build
         run: |
           clang -Wall -Wextra -Werror -pedantic -std=c11 \
@@ -44,10 +50,12 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions-rust-lang/setup-rust-toolchain@v1
         with:
-          components: clippy
-      - run: cargo test
+          components: clippy, rustfmt
+      - run: cargo fmt --check
         working-directory: clients/rust
       - run: cargo clippy -- -D warnings
+        working-directory: clients/rust
+      - run: cargo test
         working-directory: clients/rust
 
   nodejs:
@@ -58,7 +66,13 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm install
+      - run: npm ci
+        working-directory: clients/nodejs
+      - run: npx prettier --check src/ test/
+        working-directory: clients/nodejs
+      - run: npx eslint src/ test/
+        working-directory: clients/nodejs
+      - run: npx tsc --noEmit
         working-directory: clients/nodejs
       - run: npm test
         working-directory: clients/nodejs
@@ -75,6 +89,9 @@ jobs:
           sudo luarocks install busted
           sudo luarocks install luasocket
           sudo luarocks install lua-messagepack
+          sudo luarocks install luacheck
+      - run: luacheck kgd/ spec/ --config .luacheckrc
+        working-directory: clients/lua
       - run: busted spec/
         working-directory: clients/lua
 
@@ -86,6 +103,8 @@ jobs:
       - uses: goto-bus-stop/setup-zig@v2
         with:
           version: "0.14.0"
+      - run: zig fmt --check src/ test/ build.zig
+        working-directory: clients/zig
       - run: zig build test
         working-directory: clients/zig
 
@@ -107,7 +126,7 @@ jobs:
           distribution: temurin
           java-version: "17"
       - uses: gradle/actions/setup-gradle@v4
-      - run: gradle test
+      - run: ./gradlew test
         working-directory: clients/jvm
 
   dotnet:
@@ -118,6 +137,8 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "8.0"
+      - run: dotnet format --verify-no-changes
+        working-directory: clients/dotnet
       - run: dotnet test
         working-directory: clients/dotnet
 
@@ -129,6 +150,23 @@ jobs:
       - uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: "5.2"
-      - run: opam install dune --yes
+      - run: opam install dune ocamlformat --yes
+      - name: Format check
+        run: opam exec -- dune build @fmt
+        working-directory: clients/ocaml
       - run: opam exec -- dune runtest
         working-directory: clients/ocaml
+
+  python:
+    name: Python
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ruff
+      - run: ruff check clients/python/
+      - run: ruff format --check clients/python/
+      - run: pip install -e "clients/python[dev]"
+      - run: pytest clients/python/tests/

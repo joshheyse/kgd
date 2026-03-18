@@ -81,8 +81,8 @@ struct kgd_client {
 
 /* Forward declarations */
 static void *reader_thread(void *arg);
-static kgd_error do_call(kgd_client *c, const uint8_t *req, size_t reqlen,
-                         uint32_t msgid, uint8_t **out, size_t *outlen);
+static kgd_error do_call(kgd_client *c, const uint8_t *req, size_t reqlen, uint32_t msgid,
+                         uint8_t **out, size_t *outlen);
 static kgd_error send_all(kgd_client *c, const uint8_t *data, size_t len);
 static void process_message(kgd_client *c, const uint8_t *data, size_t len);
 
@@ -100,8 +100,10 @@ kgd_client *kgd_connect(const kgd_options *opts) {
 
     if (opts) {
         path = opts->socket_path;
-        if (opts->client_type) client_type = opts->client_type;
-        if (opts->label) label = opts->label;
+        if (opts->client_type)
+            client_type = opts->client_type;
+        if (opts->label)
+            label = opts->label;
         session_id = opts->session_id;
     }
 
@@ -240,9 +242,8 @@ const kgd_hello_result *kgd_get_hello(const kgd_client *c) {
     return &c->hello;
 }
 
-kgd_error kgd_upload(kgd_client *c, const void *imgdata, size_t len,
-                     const char *format, int width, int height,
-                     uint32_t *out_handle) {
+kgd_error kgd_upload(kgd_client *c, const void *imgdata, size_t len, const char *format, int width,
+                     int height, uint32_t *out_handle) {
     char *data = NULL;
     size_t size = 0;
     mpack_writer_t w;
@@ -276,7 +277,8 @@ kgd_error kgd_upload(kgd_client *c, const void *imgdata, size_t len,
     size_t resplen = 0;
     kgd_error err = do_call(c, (const uint8_t *)data, size, msgid, &resp, &resplen);
     free(data);
-    if (err != KGD_OK) return err;
+    if (err != KGD_OK)
+        return err;
 
     /* Parse: {"handle": uint32} */
     mpack_reader_t rd;
@@ -301,9 +303,8 @@ kgd_error kgd_upload(kgd_client *c, const void *imgdata, size_t len,
     return KGD_OK;
 }
 
-kgd_error kgd_place(kgd_client *c, uint32_t handle, const kgd_anchor *anchor,
-                    int width, int height, const kgd_place_opts *opts,
-                    uint32_t *out_id) {
+kgd_error kgd_place(kgd_client *c, uint32_t handle, const kgd_anchor *anchor, int width, int height,
+                    const kgd_place_opts *opts, uint32_t *out_id) {
     char *data = NULL;
     size_t size = 0;
     mpack_writer_t w;
@@ -409,7 +410,8 @@ kgd_error kgd_place(kgd_client *c, uint32_t handle, const kgd_anchor *anchor,
     size_t resplen = 0;
     kgd_error err = do_call(c, (const uint8_t *)data, size, msgid, &resp, &resplen);
     free(data);
-    if (err != KGD_OK) return err;
+    if (err != KGD_OK)
+        return err;
 
     /* Parse: {"placement_id": uint32} */
     mpack_reader_t rd;
@@ -434,8 +436,8 @@ kgd_error kgd_place(kgd_client *c, uint32_t handle, const kgd_anchor *anchor,
     return KGD_OK;
 }
 
-static kgd_error send_simple_call(kgd_client *c, const char *method,
-                                   const char *key, uint32_t val) {
+static kgd_error send_simple_call(kgd_client *c, const char *method, const char *key,
+                                  uint32_t val) {
     char *data = NULL;
     size_t size = 0;
     mpack_writer_t w;
@@ -500,9 +502,8 @@ kgd_error kgd_free_handle(kgd_client *c, uint32_t handle) {
     return send_simple_call(c, "free", "handle", handle);
 }
 
-kgd_error kgd_register_win(kgd_client *c, int win_id, const char *pane_id,
-                           int top, int left, int width, int height,
-                           int scroll_top) {
+kgd_error kgd_register_win(kgd_client *c, int win_id, const char *pane_id, int top, int left,
+                           int width, int height, int scroll_top) {
     char *data = NULL;
     size_t size = 0;
     mpack_writer_t w;
@@ -629,7 +630,8 @@ kgd_error kgd_list(kgd_client *c, kgd_placement_info **out, int *out_count) {
     size_t resplen = 0;
     kgd_error err = do_call(c, (const uint8_t *)data, size, msgid, &resp, &resplen);
     free(data);
-    if (err != KGD_OK) return err;
+    if (err != KGD_OK)
+        return err;
 
     *out = NULL;
     *out_count = 0;
@@ -644,7 +646,8 @@ kgd_error kgd_list(kgd_client *c, kgd_placement_info **out, int *out_count) {
         switch (mpack_expect_key_cstr(&rd, lkeys, lfound, LK_COUNT)) {
         case LK_PLACEMENTS: {
             uint32_t arr_count = mpack_expect_array_max(&rd, 4096);
-            if (mpack_reader_error(&rd) != mpack_ok) break;
+            if (mpack_reader_error(&rd) != mpack_ok)
+                break;
             if (arr_count > 0) {
                 *out = calloc(arr_count, sizeof(kgd_placement_info));
                 if (!*out) {
@@ -653,8 +656,17 @@ kgd_error kgd_list(kgd_client *c, kgd_placement_info **out, int *out_count) {
                     return KGD_ERR_NOMEM;
                 }
                 *out_count = (int)arr_count;
-                enum { PK_PLACEMENT_ID, PK_CLIENT_ID, PK_HANDLE, PK_VISIBLE, PK_ROW, PK_COL, PK_COUNT };
-                const char *pkeys[] = {"placement_id", "client_id", "handle", "visible", "row", "col"};
+                enum {
+                    PK_PLACEMENT_ID,
+                    PK_CLIENT_ID,
+                    PK_HANDLE,
+                    PK_VISIBLE,
+                    PK_ROW,
+                    PK_COL,
+                    PK_COUNT
+                };
+                const char *pkeys[] = {"placement_id", "client_id", "handle",
+                                       "visible",      "row",       "col"};
                 for (uint32_t j = 0; j < arr_count && mpack_reader_error(&rd) == mpack_ok; j++) {
                     bool pfound[PK_COUNT] = {0};
                     uint32_t mkeys = mpack_expect_map_max(&rd, 32);
@@ -664,7 +676,8 @@ kgd_error kgd_list(kgd_client *c, kgd_placement_info **out, int *out_count) {
                             (*out)[j].placement_id = mpack_expect_u32(&rd);
                             break;
                         case PK_CLIENT_ID:
-                            mpack_expect_cstr(&rd, (*out)[j].client_id, sizeof((*out)[j].client_id));
+                            mpack_expect_cstr(&rd, (*out)[j].client_id,
+                                              sizeof((*out)[j].client_id));
                             break;
                         case PK_HANDLE:
                             (*out)[j].handle = mpack_expect_u32(&rd);
@@ -728,7 +741,8 @@ kgd_error kgd_status(kgd_client *c, kgd_status_result *out) {
     size_t resplen = 0;
     kgd_error err = do_call(c, (const uint8_t *)data, size, msgid, &resp, &resplen);
     free(data);
-    if (err != KGD_OK) return err;
+    if (err != KGD_OK)
+        return err;
 
     memset(out, 0, sizeof(*out));
     mpack_reader_t rd;
@@ -791,7 +805,8 @@ kgd_error kgd_stop(kgd_client *c) {
 }
 
 void kgd_close(kgd_client *c) {
-    if (!c) return;
+    if (!c)
+        return;
     c->closed = 1;
     shutdown(c->fd, SHUT_RDWR);
     close(c->fd);
@@ -807,19 +822,23 @@ void kgd_close(kgd_client *c) {
 }
 
 void kgd_set_evicted_cb(kgd_client *c, kgd_evicted_cb cb, void *ud) {
-    c->evicted_cb = cb; c->evicted_ud = ud;
+    c->evicted_cb = cb;
+    c->evicted_ud = ud;
 }
 
 void kgd_set_topology_cb(kgd_client *c, kgd_topology_cb cb, void *ud) {
-    c->topology_cb = cb; c->topology_ud = ud;
+    c->topology_cb = cb;
+    c->topology_ud = ud;
 }
 
 void kgd_set_visibility_cb(kgd_client *c, kgd_visibility_cb cb, void *ud) {
-    c->visibility_cb = cb; c->visibility_ud = ud;
+    c->visibility_cb = cb;
+    c->visibility_ud = ud;
 }
 
 void kgd_set_theme_cb(kgd_client *c, kgd_theme_cb cb, void *ud) {
-    c->theme_cb = cb; c->theme_ud = ud;
+    c->theme_cb = cb;
+    c->theme_ud = ud;
 }
 
 /* ---------- internal helpers ---------- */
@@ -837,8 +856,8 @@ static kgd_error send_all(kgd_client *c, const uint8_t *data, size_t len) {
     return KGD_OK;
 }
 
-static kgd_error do_call(kgd_client *c, const uint8_t *req, size_t reqlen,
-                         uint32_t msgid, uint8_t **out, size_t *outlen) {
+static kgd_error do_call(kgd_client *c, const uint8_t *req, size_t reqlen, uint32_t msgid,
+                         uint8_t **out, size_t *outlen) {
     int slot = (int)(msgid % MAX_PENDING);
     pending_entry *pe = &c->pending[slot];
 
@@ -1171,7 +1190,8 @@ static void *reader_thread(void *arg) {
 
     while (!c->closed) {
         ssize_t n = read(c->fd, tmp, sizeof(tmp));
-        if (n <= 0) break;
+        if (n <= 0)
+            break;
 
         /* Grow recv buffer if needed — with overflow check */
         size_t need = c->recv_len + (size_t)n;
@@ -1222,7 +1242,7 @@ static void *reader_thread(void *arg) {
             }
             c->recv_len = remaining;
         }
-next_read:;
+    next_read:;
     }
 
     /* Wake pending calls */
