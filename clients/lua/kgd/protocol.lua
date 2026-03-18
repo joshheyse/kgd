@@ -53,30 +53,26 @@ end
 -- @return string  Remaining unconsumed bytes.
 function M.decode(buf)
     local messages = {}
-    local offset = 1
-    local buflen = #buf
+    if #buf == 0 then
+        return messages, ""
+    end
 
-    while offset <= buflen do
-        -- mp.unpack(buf, offset) returns (value, next_offset).
-        -- It throws on incomplete/malformed data.
-        local ok, msg, new_offset = pcall(mp.unpack, buf, offset)
-        if not ok then
-            -- Incomplete data or parse error; stop and return remainder.
+    local unpacker = mp.unpacker(buf)
+    local last_cursor = 1
+    while true do
+        local ok, cursor, val = pcall(unpacker)
+        if not ok or cursor == nil then
             break
         end
-        -- If unpack returned no new offset, we cannot advance.
-        if type(new_offset) ~= "number" or new_offset <= offset then
-            break
-        end
-        messages[#messages + 1] = msg
-        offset = new_offset
+        messages[#messages + 1] = val
+        last_cursor = cursor
     end
 
     local remainder
-    if offset > buflen then
+    if last_cursor > #buf then
         remainder = ""
     else
-        remainder = buf:sub(offset)
+        remainder = buf:sub(last_cursor)
     end
 
     return messages, remainder
@@ -106,7 +102,7 @@ end
 -- @return any  error (nil if no error)
 -- @return any  result
 function M.parse_response(msg)
-    if #msg < 4 then
+    if type(msg) ~= "table" or msg[1] ~= M.MSG_RESPONSE or msg[2] == nil then
         return nil, "malformed response", nil
     end
     return msg[2], msg[3], msg[4]

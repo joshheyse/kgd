@@ -1,3 +1,4 @@
+using System.Buffers;
 using MessagePack;
 
 namespace Kgd;

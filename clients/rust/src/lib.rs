@@ -112,19 +112,15 @@ impl Color {
 
 /// The coordinate space an anchor refers to.
 #[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Default)]
 pub enum AnchorType {
     /// Absolute terminal coordinates.
+    #[default]
     Absolute,
     /// Relative to a tmux pane.
     Pane,
     /// Relative to a neovim window.
     NvimWin,
-}
-
-impl Default for AnchorType {
-    fn default() -> Self {
-        Self::Absolute
-    }
 }
 
 impl AnchorType {
@@ -511,6 +507,7 @@ impl Client {
     }
 
     /// Register a neovim window geometry (fire-and-forget).
+    #[allow(clippy::too_many_arguments)]
     pub async fn register_win(
         &self,
         win_id: i64,
@@ -849,7 +846,7 @@ async fn ensure_daemon(socket_path: &str) -> Result<()> {
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn()
-        .map_err(|e| KgdError::Connect(e))?;
+        .map_err(KgdError::Connect)?;
 
     // Poll until the socket is reachable (up to 5 seconds).
     for _ in 0..50 {
@@ -893,7 +890,7 @@ impl SyncClient {
         let runtime = tokio::runtime::Builder::new_multi_thread()
             .enable_all()
             .build()
-            .map_err(|e| KgdError::Connect(e))?;
+            .map_err(KgdError::Connect)?;
 
         let client = runtime.block_on(Client::connect(opts))?;
         Ok(Self {
@@ -949,6 +946,7 @@ impl SyncClient {
     }
 
     /// Register a neovim window geometry (blocking).
+    #[allow(clippy::too_many_arguments)]
     pub fn register_win(
         &self,
         win_id: i64,

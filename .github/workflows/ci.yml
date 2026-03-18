@@ -58,7 +58,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-      - run: npm ci
+      - run: npm install
         working-directory: clients/nodejs
       - run: npm test
         working-directory: clients/nodejs
@@ -94,9 +94,6 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: swift-actions/setup-swift@v2
-        with:
-          swift-version: "6.0"
       - run: swift test
         working-directory: clients/swift
 
@@ -132,5 +129,6 @@ jobs:
       - uses: ocaml/setup-ocaml@v3
         with:
           ocaml-compiler: "5.2"
+      - run: opam install dune --yes
       - run: opam exec -- dune runtest
         working-directory: clients/ocaml
