@@ -4,10 +4,9 @@
  * Msgpack-rpc over Unix sockets using MPack for encode/decode.
  */
 
-#define _POSIX_C_SOURCE 199309L
+#define _POSIX_C_SOURCE 200809L
 
 #include "kgd.h"
-#include "mpack.h"
 
 #include <errno.h>
 #include <pthread.h>
@@ -20,6 +19,8 @@
 #include <sys/un.h>
 #include <time.h>
 #include <unistd.h>
+
+#include "mpack.h"
 
 /* ---------- client internals ---------- */
 
