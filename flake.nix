@@ -2,7 +2,7 @@
   description = "kgd - Kitty Graphics Daemon";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/release-25.05";
+    nixpkgs.url = "github:nixos/nixpkgs/nixpkgs-unstable";
   };
 
   outputs = {
@@ -23,7 +23,7 @@
         pname = "kgd";
         version = "0.1.0";
         src = ./.;
-        vendorHash = null; # update after first `go mod tidy`
+        vendorHash = "sha256-bEQIuXh9uZk2qnpdJjAISwxiSHldOi/YninWGwr4ynE=";
       };
     });
 
